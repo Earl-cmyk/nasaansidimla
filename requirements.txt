@@ -4,4 +4,5 @@ psycopg[binary]==3.2.10
 gunicorn==21.0.0
 Markdown==3.7
 bleach==6.2.0
+tinycss2==1.4.0
 yt-dlp==2025.3.31
