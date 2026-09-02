@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Earl - Fitness{% endblock %}
+
+{% block content %}
+<section class="fitness-shell">
+    <div class="fitness-header section-header">
+        <div>
+            <p class="eyebrow">health</p>
+            <h1>Fitness</h1>
+        </div>
+        <button id="log-workout-btn" class="primary-button" type="button">Log workout</button>
+    </div>
+
+    <div class="fitness-grid">
+        <div class="anatomy-panel card">
+            <h3>Muscle map</h3>
+            <p class="muscle-info">Muscle intensity updates as you log workouts. Blue = low activity, Red = high activity.</p>
+            <div class="body-visual" id="body-visual">
+                <div class="muscle muscle-default" data-muscle="chest">Chest</div>
+                <div class="muscle muscle-default" data-muscle="arms">Arms</div>
+                <div class="muscle muscle-default" data-muscle="shoulders">Shoulders</div>
+                <div class="muscle muscle-default" data-muscle="core">Core</div>
+                <div class="muscle muscle-default" data-muscle="legs">Legs</div>
+                <div class="muscle muscle-default" data-muscle="back">Back</div>
+            </div>
+        </div>
+
+        <aside class="calorie-panel card">
+            <div class="card-header">
+                <span>Calorie tracker</span>
+                <span>today</span>
+            </div>
+            <div id="calorie-display" class="macro-ring">
+                <div class="ring-inner">
+                    <strong>0</strong>
+                    <span>consumed</span>
+                </div>
+            </div>
+
+            <form id="calorie-form" class="calorie-form">
+                <label>
+                    <span>Food</span>
+                    <input type="text" placeholder="What did you eat?" required>
+                </label>
+                <label>
+                    <span>Calories</span>
+                    <input type="number" placeholder="Calories" min="0" step="10" required>
+                </label>
+                <button class="secondary-button" type="submit">Log meal</button>
+            </form>
+
+            <div class="calorie-summary" id="calorie-summary">
+                <p>Target: 2,200 kcal</p>
+                <p>Consumed: 0 kcal</p>
+                <p>Remaining: 2,200 kcal</p>
+            </div>
+        </aside>
+    </div>
+</section>
+
+<!-- Log Workout Modal -->
+<div id="workout-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Log workout</h2>
+            <button id="workout-close" class="ghost-button" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="workout-form">
+                <label>
+                    <span>Muscle group</span>
+                    <select required>
+                        <option value="">Select muscle...</option>
+                        <option value="chest">Chest</option>
+                        <option value="arms">Arms</option>
+                        <option value="shoulders">Shoulders</option>
+                        <option value="core">Core</option>
+                        <option value="legs">Legs</option>
+                        <option value="back">Back</option>
+                    </select>
+                </label>
+                <label>
+                    <span>Exercise</span>
+                    <input type="text" placeholder="e.g., Bench press" required>
+                </label>
+                <label>
+                    <span>Sets × Reps</span>
+                    <input type="text" placeholder="e.g., 3 × 10" required>
+                </label>
+                <label>
+                    <span>Intensity (1-10)</span>
+                    <input type="number" min="1" max="10" required>
+                </label>
+                <button type="submit" class="primary-button">Log workout</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const workouts = {
+        chest: 0,
+        arms: 0,
+        shoulders: 0,
+        core: 0,
+        legs: 0,
+        back: 0
+    };
+
+    let totalCalories = 0;
+    const calorieTarget = 2200;
+
+    const logWorkoutBtn = document.getElementById('log-workout-btn');
+    const workoutModal = document.getElementById('workout-modal');
+    const workoutClose = document.getElementById('workout-close');
+    const workoutForm = document.getElementById('workout-form');
+    const calorieForm = document.getElementById('calorie-form');
+
+    logWorkoutBtn.addEventListener('click', () => {
+        workoutModal.classList.add('open');
+    });
+
+    workoutClose.addEventListener('click', () => {
+        workoutModal.classList.remove('open');
+    });
+
+    workoutModal.addEventListener('click', (e) => {
+        if (e.target === workoutModal) {
+            workoutModal.classList.remove('open');
+        }
+    });
+
+    async function loadWorkoutProgress() {
+        const response = await fetch('/api/muscle-progress');
+        const progress = await response.json();
+
+        Object.entries(workouts).forEach(([muscle]) => {
+            workouts[muscle] = Number(progress[muscle] || 0);
+        });
+        updateMuscleColors();
+    }
+
+    workoutForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const muscle = e.target[0].value;
+        const exercise = e.target[1].value.trim();
+        const reps = e.target[2].value.trim();
+        const intensity = parseInt(e.target[3].value);
+
+        if (muscle && exercise && reps && intensity) {
+            const response = await fetch('/api/workouts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    muscle_group: muscle,
+                    exercise,
+                    sets_reps: reps,
+                    intensity,
+                    date: new Date().toISOString().slice(0, 10),
+                }),
+            });
+
+            if (response.ok) {
+                await loadWorkoutProgress();
+                workoutForm.reset();
+                workoutModal.classList.remove('open');
+            }
+        }
+    });
+
+    calorieForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const food = e.target[0].value.trim();
+        const calories = parseInt(e.target[1].value);
+
+        if (food && calories) {
+            const response = await fetch('/api/meals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: food,
+                    calories,
+                    category: 'food',
+                    date: new Date().toISOString().slice(0, 10),
+                }),
+            });
+
+            if (response.ok) {
+                await loadCalorieData();
+                calorieForm.reset();
+            }
+        }
+    });
+
+    async function loadCalorieData() {
+        const today = new Date().toISOString().slice(0, 10);
+        const response = await fetch(`/api/meals?date=${today}`);
+        const meals = await response.json();
+
+        totalCalories = meals.reduce((sum, meal) => sum + meal.calories, 0);
+        updateCalorieDisplay();
+    }
+
+    function updateMuscleColors() {
+        Object.entries(workouts).forEach(([muscle, progress]) => {
+            const elem = document.querySelector(`[data-muscle="${muscle}"]`);
+            if (!elem) return;
+            const hue = 240 - (progress / 10) * 60;
+            const saturation = Math.max(30, progress * 10);
+            const lightness = 45;
+            elem.style.backgroundColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        });
+    }
+
+    function updateCalorieDisplay() {
+        document.querySelector('#calorie-display .ring-inner strong').textContent = totalCalories;
+        const remaining = Math.max(0, calorieTarget - totalCalories);
+        document.getElementById('calorie-summary').innerHTML = `
+            <p>Target: ${calorieTarget} kcal</p>
+            <p>Consumed: ${totalCalories} kcal</p>
+            <p>Remaining: ${remaining} kcal</p>
+        `;
+    }
+
+    loadWorkoutProgress();
+    loadCalorieData();
+    updateCalorieDisplay();
+</script>
+{% endblock %}

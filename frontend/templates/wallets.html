@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}Earl - Wallets{% endblock %}
+
+{% block content %}
+<section class="wallet-shell page-panel">
+    <header class="section-header">
+        <div>
+            <p class="eyebrow">finance</p>
+            <h1>Wallets</h1>
+        </div>
+        <button id="add-transaction-btn" class="primary-button" type="button">+ Add transaction</button>
+    </header>
+
+    <!-- Summary Cards -->
+    <div id="wallet-summary-grid" class="wallet-summary-grid">
+        <article class="wallet-card">
+            <span class="meta-label">Total spent</span>
+            <h3 id="total-spent">$0.00</h3>
+            <p class="trend">This month</p>
+        </article>
+        <article class="wallet-card">
+            <span class="meta-label">Total income</span>
+            <h3 id="total-income">$0.00</h3>
+            <p class="trend positive">This month</p>
+        </article>
+        <article class="wallet-card">
+            <span class="meta-label">Net balance</span>
+            <h3 id="net-balance">$0.00</h3>
+            <p class="trend" id="balance-trend">No data yet</p>
+        </article>
+        <article class="wallet-card">
+            <span class="meta-label">Transactions</span>
+            <h3 id="transaction-count">0</h3>
+            <p class="trend">Logged</p>
+        </article>
+    </div>
+
+    <!-- Spending by Category -->
+    <div class="wallet-grid wallet-grid-main">
+        <div class="wallet-panel card">
+            <div class="card-header">
+                <span>Spending by category</span>
+                <span>breakdown</span>
+            </div>
+            <ul id="category-breakdown" class="spending-list">
+                <li class="empty-state-text" style="grid-column: 1 / -1;">No spending yet.</li>
+            </ul>
+        </div>
+
+        <div class="wallet-panel card">
+            <div class="card-header">
+                <span>Recent transactions</span>
+                <span>latest first</span>
+            </div>
+            <ul id="transaction-list" class="spending-list">
+                <li class="empty-state-text">No transactions yet. Add one to get started.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Spending Insights -->
+    <div class="wallet-grid">
+        <div class="wallet-panel card">
+            <div class="card-header">
+                <span>Insights</span>
+                <span>analysis</span>
+            </div>
+            <div id="insights-box" class="insight-box" style="display: none;">
+                <h4 id="insight-title">Spending Analysis</h4>
+                <p id="insight-text">No data yet. Log transactions to see insights.</p>
+            </div>
+            <p id="no-insight" class="empty-state-text">Log at least 5 transactions to get spending insights.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Add Transaction Modal -->
+<div id="transaction-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Add transaction</h2>
+            <button id="transaction-close" class="ghost-button" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="transaction-form">
+                <label>
+                    <span>Title</span>
+                    <input type="text" id="trans-title" placeholder="e.g., Groceries, Salary, Rent" required>
+                </label>
+                <label>
+                    <span>Type</span>
+                    <select id="trans-type" required>
+                        <option value="">Select type...</option>
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                        <option value="transfer">Transfer</option>
+                    </select>
+                </label>
+                <label>
+                    <span>Category</span>
+                    <select id="trans-category" required>
+                        <option value="">Select category...</option>
+                        <option value="housing">Housing</option>
+                        <option value="food">Food</option>
+                        <option value="transport">Transport</option>
+                        <option value="utilities">Utilities</option>
+                        <option value="entertainment">Entertainment</option>
+                        <option value="health">Health</option>
+                        <option value="investing">Investing</option>
+                        <option value="other">Other</option>
+                    </select>
+                </label>
+                <label>
+                    <span>Amount</span>
+                    <input type="number" id="trans-amount" placeholder="0.00" min="0" step="0.01" required>
+                </label>
+                <label>
+                    <span>Date</span>
+                    <input type="date" id="trans-date" required>
+                </label>
+                <button type="submit" class="primary-button">Save transaction</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const addTransactionBtn = document.getElementById('add-transaction-btn');
+    const transactionModal = document.getElementById('transaction-modal');
+    const transactionClose = document.getElementById('transaction-close');
+    const transactionForm = document.getElementById('transaction-form');
+    const transactionList = document.getElementById('transaction-list');
+    const categoryBreakdown = document.getElementById('category-breakdown');
+
+    document.getElementById('trans-date').valueAsDate = new Date();
+
+    addTransactionBtn.addEventListener('click', () => {
+        transactionModal.classList.add('open');
+    });
+
+    transactionClose.addEventListener('click', () => {
+        transactionModal.classList.remove('open');
+    });
+
+    transactionModal.addEventListener('click', (e) => {
+        if (e.target === transactionModal) {
+            transactionModal.classList.remove('open');
+        }
+    });
+
+    async function loadTransactions() {
+        const response = await fetch('/api/transactions');
+        const transactions = await response.json();
+        const categoryTotals = {};
+
+        transactionList.innerHTML = '';
+        if (!transactions.length) {
+            transactionList.innerHTML = '<li class="empty-state-text">No transactions yet. Add one to get started.</li>';
+        } else {
+            transactions.forEach((transaction) => {
+                if (transaction.type === 'expense') {
+                    categoryTotals[transaction.category] = (categoryTotals[transaction.category] || 0) + Number(transaction.amount || 0);
+                }
+
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span>${transaction.title}</span>
+                    <strong>$${Number(transaction.amount || 0).toFixed(2)}</strong>
+                    <em>${transaction.type}</em>
+                `;
+                transactionList.appendChild(li);
+            });
+        }
+
+        const totalSpent = transactions
+            .filter((t) => t.type === 'expense')
+            .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        const totalIncome = transactions
+            .filter((t) => t.type === 'income')
+            .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        const netBalance = totalIncome - totalSpent;
+
+        document.getElementById('total-spent').textContent = `$${totalSpent.toFixed(2)}`;
+        document.getElementById('total-income').textContent = `$${totalIncome.toFixed(2)}`;
+        document.getElementById('net-balance').textContent = `$${netBalance.toFixed(2)}`;
+        document.getElementById('transaction-count').textContent = String(transactions.length);
+
+        const trendElem = document.getElementById('balance-trend');
+        if (netBalance > 0) {
+            trendElem.className = 'trend positive';
+            trendElem.textContent = 'Positive';
+        } else if (netBalance < 0) {
+            trendElem.className = 'trend warning';
+            trendElem.textContent = 'Negative';
+        } else {
+            trendElem.className = 'trend';
+            trendElem.textContent = 'Balanced';
+        }
+
+        if (Object.keys(categoryTotals).length === 0) {
+            categoryBreakdown.innerHTML = '<li class="empty-state-text" style="grid-column: 1 / -1;">No spending yet.</li>';
+        } else {
+            const totalExpenses = Object.values(categoryTotals).reduce((sum, value) => sum + value, 0);
+            categoryBreakdown.innerHTML = '';
+            Object.entries(categoryTotals).forEach(([category, amount]) => {
+                const percentage = totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(0) : 0;
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span>${category.charAt(0).toUpperCase() + category.slice(1)}</span>
+                    <strong>$${amount.toFixed(2)}</strong>
+                    <em>${percentage}%</em>
+                `;
+                categoryBreakdown.appendChild(li);
+            });
+        }
+
+        const noInsight = document.getElementById('no-insight');
+        const insightBox = document.getElementById('insights-box');
+        if (transactions.length < 5) {
+            noInsight.style.display = 'block';
+            insightBox.style.display = 'none';
+            return;
+        }
+
+        noInsight.style.display = 'none';
+        insightBox.style.display = 'block';
+
+        const expenses = transactions.filter((t) => t.type === 'expense');
+        if (expenses.length > 0) {
+            const totalSpent = expenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+            const avgPerTransaction = (totalSpent / expenses.length).toFixed(2);
+            const largestExpense = Math.max(...expenses.map((t) => Number(t.amount || 0))).toFixed(2);
+            const categoryCounts = {};
+            expenses.forEach((t) => {
+                categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1;
+            });
+            const mostCommon = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0];
+
+            document.getElementById('insight-title').textContent = 'Spending Analysis';
+            document.getElementById('insight-text').innerHTML = `
+                <strong>Total spent:</strong> $${totalSpent.toFixed(2)}<br>
+                <strong>Average per transaction:</strong> $${avgPerTransaction}<br>
+                <strong>Largest expense:</strong> $${largestExpense}<br>
+                <strong>Most common category:</strong> ${mostCommon[0].charAt(0).toUpperCase() + mostCommon[0].slice(1)}<br>
+                <strong>Spending rate:</strong> $${(totalSpent / transactions.length).toFixed(2)} per entry
+            `;
+        }
+    }
+
+    transactionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const payload = {
+            title: document.getElementById('trans-title').value.trim(),
+            type: document.getElementById('trans-type').value,
+            category: document.getElementById('trans-category').value,
+            amount: parseFloat(document.getElementById('trans-amount').value),
+            date: document.getElementById('trans-date').value,
+        };
+
+        if (!payload.title || !payload.type || !payload.category || !payload.amount || !payload.date) {
+            return;
+        }
+
+        const response = await fetch('/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        if (response.ok) {
+            transactionForm.reset();
+            document.getElementById('trans-date').valueAsDate = new Date();
+            transactionModal.classList.remove('open');
+            await loadTransactions();
+        }
+    });
+
+    loadTransactions();
+</script>
+{% endblock %}

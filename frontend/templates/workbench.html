@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Earl - Workbench{% endblock %}
+
+{% block content %}
+<section class="page-panel">
+    <header class="section-header">
+        <div>
+            <p class="eyebrow">creative</p>
+            <h1>Workbench</h1>
+        </div>
+        <button id="new-project-btn" class="primary-button" type="button">New project</button>
+    </header>
+
+    <div id="workbench-grid" class="workbench-grid">
+        <article class="card project-card" data-type="essays">
+            <h3>Essays</h3>
+            <p>Outline, draft, and refine long-form writing with research tools and structure guides.</p>
+            <button class="secondary-button" type="button">Open →</button>
+        </article>
+        <article class="card project-card" data-type="books">
+            <h3>Books</h3>
+            <p>Track characters, chapters, and ideas in one place to keep momentum through your story.</p>
+            <button class="secondary-button" type="button">Open →</button>
+        </article>
+        <article class="card project-card" data-type="sheets">
+            <h3>Sheets</h3>
+            <p>Build quick tables, summaries, and recurring lists that move from thought to plan.</p>
+            <button class="secondary-button" type="button">Open →</button>
+        </article>
+    </div>
+</section>
+
+<!-- Essays Modal -->
+<div id="essays-modal" class="modal project-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Essays</h2>
+            <button class="ghost-button modal-close" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="essays-list" class="project-list">
+                <p class="empty-state-text">No essays yet. Create one to get started.</p>
+            </div>
+            <form id="essays-form" class="project-form">
+                <input type="text" placeholder="Essay title..." required>
+                <textarea placeholder="Outline or notes..." rows="6"></textarea>
+                <button type="submit" class="primary-button">Create essay</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Books Modal -->
+<div id="books-modal" class="modal project-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Books</h2>
+            <button class="ghost-button modal-close" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="books-list" class="project-list">
+                <p class="empty-state-text">No books yet. Start tracking your next story.</p>
+            </div>
+            <form id="books-form" class="project-form">
+                <input type="text" placeholder="Book title..." required>
+                <input type="text" placeholder="Characters (comma-separated)">
+                <input type="number" placeholder="Total chapters" min="1">
+                <textarea placeholder="Plot outline..." rows="6"></textarea>
+                <button type="submit" class="primary-button">Create book</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Sheets Modal -->
+<div id="sheets-modal" class="modal project-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Sheets</h2>
+            <button class="ghost-button modal-close" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="sheets-list" class="project-list">
+                <p class="empty-state-text">No sheets yet. Create a quick table or summary.</p>
+            </div>
+            <form id="sheets-form" class="project-form">
+                <input type="text" placeholder="Sheet name..." required>
+                <textarea placeholder="Data, table, or summary..." rows="6"></textarea>
+                <button type="submit" class="primary-button">Create sheet</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const projectCards = document.querySelectorAll('.project-card');
+    const modalCloseButtons = document.querySelectorAll('.modal-close');
+    const newProjectBtn = document.getElementById('new-project-btn');
+
+    const projects = {
+        essays: [],
+        books: [],
+        sheets: []
+    };
+
+    // Open project type modal
+    projectCards.forEach(card => {
+        const openBtn = card.querySelector('button');
+        openBtn.addEventListener('click', () => {
+            const type = card.dataset.type;
+            const modal = document.getElementById(`${type}-modal`);
+            modal.classList.add('open');
+        });
+    });
+
+    // Close modals
+    modalCloseButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.closest('.modal').classList.remove('open');
+        });
+    });
+
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('open');
+            }
+        });
+    });
+
+    // Handle form submissions
+    document.getElementById('essays-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = e.target[0].value.trim();
+        const outline = e.target[1].value.trim();
+
+        if (title) {
+            const response = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'essay',
+                    title,
+                    description: outline,
+                    metadata: {}
+                }),
+            });
+
+            if (response.ok) {
+                addProjectItemToList('essays-list', title, outline);
+                e.target.reset();
+            }
+        }
+    });
+
+    document.getElementById('books-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = e.target[0].value.trim();
+        const characters = e.target[1].value.trim();
+        const chapters = e.target[2].value;
+        const outline = e.target[3].value.trim();
+
+        if (title) {
+            const response = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'book',
+                    title,
+                    description: outline,
+                    metadata: { characters, chapters }
+                }),
+            });
+
+            if (response.ok) {
+                addProjectItemToList('books-list', title, `Chapters: ${chapters}, Characters: ${characters}`);
+                e.target.reset();
+            }
+        }
+    });
+
+    document.getElementById('sheets-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = e.target[0].value.trim();
+        const data = e.target[1].value.trim();
+
+        if (title) {
+            const response = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'sheet',
+                    title,
+                    description: data,
+                    metadata: {}
+                }),
+            });
+
+            if (response.ok) {
+                addProjectItemToList('sheets-list', title, data);
+                e.target.reset();
+            }
+        }
+    });
+
+    async function loadProjectsByType(type) {
+        const response = await fetch('/api/projects');
+        const allProjects = await response.json();
+        
+        const typeProjects = allProjects.filter(p => p.type === type);
+        
+        if (type === 'essay') {
+            typeProjects.forEach(p => addProjectItemToList('essays-list', p.title, p.description));
+        } else if (type === 'book') {
+            typeProjects.forEach(p => addProjectItemToList('books-list', p.title, p.description));
+        } else if (type === 'sheet') {
+            typeProjects.forEach(p => addProjectItemToList('sheets-list', p.title, p.description));
+        }
+    }
+
+    function addProjectItemToList(listId, title, description) {
+        const list = document.getElementById(listId);
+        
+        // Remove empty state if exists
+        const emptyState = list.querySelector('.empty-state-text');
+        if (emptyState) emptyState.remove();
+
+        // Create item
+        const item = document.createElement('div');
+        item.className = 'project-item card';
+        item.innerHTML = `
+            <h4>${title}</h4>
+            <p>${description.substring(0, 80)}${description.length > 80 ? '...' : ''}</p>
+        `;
+        
+        list.insertBefore(item, list.firstChild);
+    }
+
+    // Load existing projects on page load
+    loadProjectsByType('essay');
+    loadProjectsByType('book');
+    loadProjectsByType('sheet');
+</script>
+{% endblock %}

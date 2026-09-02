@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Earl - Works{% endblock %}
+
+{% block content %}
+<section class="page-panel">
+    <header class="section-header">
+        <div>
+            <p class="eyebrow">archive</p>
+            <h1>Works</h1>
+        </div>
+        <button id="upload-btn" class="primary-button" type="button">Upload</button>
+    </header>
+
+    <div class="works-layout">
+        <div id="images-section" class="card work-view">
+            <h3>Images</h3>
+            <div id="images-grid" class="masonry-grid">
+                <p class="empty-state-text">No images yet. Upload to get started.</p>
+            </div>
+        </div>
+
+        <div id="videos-section" class="card work-view">
+            <h3>Videos</h3>
+            <div id="videos-list" class="video-stack">
+                <p class="empty-state-text">No videos yet.</p>
+            </div>
+        </div>
+
+        <div id="files-section" class="card work-view">
+            <h3>Files</h3>
+            <ul id="files-list" class="file-list">
+                <p class="empty-state-text">No files yet.</p>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<!-- Upload Modal -->
+<div id="upload-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Upload</h2>
+            <button id="upload-close" class="ghost-button" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="upload-form">
+                <label>
+                    <span>File type</span>
+                    <select id="file-type" required>
+                        <option value="">Select type...</option>
+                        <option value="image">Image</option>
+                        <option value="video">Video</option>
+                        <option value="document">Document</option>
+                        <option value="other">Other</option>
+                    </select>
+                </label>
+                <label>
+                    <span>File name</span>
+                    <input type="text" id="file-name" placeholder="My file name" required>
+                </label>
+                <label>
+                    <span>Description</span>
+                    <textarea id="file-desc" placeholder="What is this file..." rows="4"></textarea>
+                </label>
+                <div class="drop-zone" id="drop-zone">
+                    <p>Drop files here or click to select</p>
+                </div>
+                <button type="submit" class="primary-button">Upload</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const uploadBtn = document.getElementById('upload-btn');
+    const uploadModal = document.getElementById('upload-modal');
+    const uploadClose = document.getElementById('upload-close');
+    const uploadForm = document.getElementById('upload-form');
+    const dropZone = document.getElementById('drop-zone');
+
+    const files = {
+        images: [],
+        videos: [],
+        documents: [],
+        other: []
+    };
+
+    // Open upload modal
+    uploadBtn.addEventListener('click', () => {
+        uploadModal.classList.add('open');
+    });
+
+    uploadClose.addEventListener('click', () => {
+        uploadModal.classList.remove('open');
+    });
+
+    uploadModal.addEventListener('click', (e) => {
+        if (e.target === uploadModal) {
+            uploadModal.classList.remove('open');
+        }
+    });
+
+    // Drag and drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.background = 'rgba(124, 199, 255, 0.1)';
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.background = '';
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.background = '';
+        // File handling would go here
+    });
+
+    // Handle form submission
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const fileType = document.getElementById('file-type').value;
+        const fileName = document.getElementById('file-name').value.trim();
+        const fileDesc = document.getElementById('file-desc').value.trim();
+
+        if (fileType && fileName) {
+            const response = await fetch('/api/files', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: fileName,
+                    file_type: fileType,
+                    description: fileDesc
+                }),
+            });
+
+            if (response.ok) {
+                if (fileType === 'image') {
+                    addImageToGrid(fileName);
+                } else if (fileType === 'video') {
+                    addVideoToList(fileName);
+                } else {
+                    addFileToList(fileName);
+                }
+
+                uploadForm.reset();
+                uploadModal.classList.remove('open');
+            }
+        }
+    });
+
+    function removeEmptyState(containerId) {
+        const container = document.getElementById(containerId);
+        const empty = container.querySelector('.empty-state-text');
+        if (empty) empty.remove();
+    }
+
+    function addImageToGrid(name) {
+        removeEmptyState('images-grid');
+        const grid = document.getElementById('images-grid');
+        const item = document.createElement('div');
+        item.className = 'masonry-item';
+        item.textContent = name.substring(0, 15);
+        grid.appendChild(item);
+    }
+
+    function addVideoToList(name) {
+        removeEmptyState('videos-list');
+        const list = document.getElementById('videos-list');
+        const item = document.createElement('div');
+        item.className = 'video-item';
+        item.textContent = name;
+        list.appendChild(item);
+    }
+
+    function addFileToList(name) {
+        removeEmptyState('files-list');
+        const list = document.getElementById('files-list');
+        const item = document.createElement('li');
+        item.textContent = name;
+        list.appendChild(item);
+    }
+
+    async function loadFilesFromBackend() {
+        const response = await fetch('/api/files');
+        const files = await response.json();
+
+        files.forEach(file => {
+            if (file.file_type === 'image') {
+                addImageToGrid(file.filename);
+            } else if (file.file_type === 'video') {
+                addVideoToList(file.filename);
+            } else {
+                addFileToList(file.filename);
+            }
+        });
+    }
+
+    // Load existing files on page load
+    loadFilesFromBackend();
+</script>
+{% endblock %}

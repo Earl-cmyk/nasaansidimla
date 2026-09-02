@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}Earl{% endblock %}</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    </head>
+    <body>
+        <nav class="topbar">
+            <div class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-icon">📌</a>
+                <a href="{{ url_for('calendar') }}" class="nav-icon">📅</a>
+                <a href="{{ url_for('notes') }}" class="nav-icon">📝</a>
+                <a href="{{ url_for('fitness') }}" class="nav-icon">💪</a>
+                <a href="{{ url_for('workbench') }}" class="nav-icon">✍️</a>
+                <a href="{{ url_for('works') }}" class="nav-icon">🗂️</a>
+                <a href="{{ url_for('wallets') }}" class="nav-icon">💰</a>
+            </div>
+
+            <div class="search-wrap">
+                <input type="text" id="search-input" placeholder="Search with Rick...">
+                <button id="search-button" class="primary-button" type="button">🔍</button>
+            </div>
+
+            <button id="assistant-toggle" class="nav-icon" title="Open assistant">💬</button>
+        </nav>
+
+        <div id="search-results" class="search-results" aria-live="polite"></div>
+
+        <main class="page-shell">
+            {% block content %}{% endblock %}
+        </main>
+
+        <aside id="assistant-drawer" class="assistant-drawer">
+            <div class="assistant-header">
+                <h3>Rick</h3>
+                <button id="assistant-close" class="ghost-button" type="button">✕</button>
+            </div>
+
+            <div id="assistant-history" class="assistant-history">
+                <p class="assistant-note">Welcome back. Ask for a reminder, note search, calendar update, or a summary of your week.</p>
+            </div>
+
+            <form id="assistant-form" method="POST" action="{{ url_for('assistant_message') }}">
+                <input type="text" name="message" placeholder="Ask Rick anything..." autocomplete="off">
+                <button type="submit" class="primary-button">🎯</button>
+            </form>
+        </aside>
+
+        <script>
+            const searchButton = document.getElementById('search-button');
+            const searchInput = document.getElementById('search-input');
+            const searchResults = document.getElementById('search-results');
+            const assistantForm = document.getElementById('assistant-form');
+            const assistantHistory = document.getElementById('assistant-history');
+            const assistantToggle = document.getElementById('assistant-toggle');
+            const assistantDrawer = document.getElementById('assistant-drawer');
+            const assistantClose = document.getElementById('assistant-close');
+
+            // Assistant drawer toggle
+            assistantToggle.addEventListener('click', () => {
+                assistantDrawer.classList.toggle('open');
+                assistantToggle.textContent = assistantDrawer.classList.contains('open') ? '💬' : '💬';
+            });
+
+            assistantClose.addEventListener('click', () => {
+                assistantDrawer.classList.remove('open');
+            });
+
+            async function handleSearch() {
+                const query = searchInput.value.trim();
+                if (!query) {
+                    searchResults.innerHTML = '<p class="search-empty">Type something to search with Rick.</p>';
+                    return;
+                }
+
+                searchResults.innerHTML = '<p class="search-empty">Searching...</p>';
+                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (!data.results || data.results.length === 0) {
+                    searchResults.innerHTML = '<p class="search-empty">No results found.</p>';
+                    return;
+                }
+
+                searchResults.innerHTML = data.results.map(item => `
+                    <article class="result-card">
+                        <h4>${item.title}</h4>
+                        <a href="${item.url}" target="_blank" rel="noreferrer">${item.url}</a>
+                        <p>${item.snippet}</p>
+                    </article>
+                `).join('');
+            }
+
+            searchButton.addEventListener('click', handleSearch);
+            searchInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    handleSearch();
+                }
+            });
+
+            assistantForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const formData = new FormData(assistantForm);
+                const message = formData.get('message')?.toString().trim();
+
+                if (!message) {
+                    return;
+                }
+
+                const messageNode = document.createElement('p');
+                messageNode.className = 'assistant-message user';
+                messageNode.textContent = message;
+                assistantHistory.appendChild(messageNode);
+
+                const response = await fetch('/assistant-message', {
+                    method: 'POST',
+                    body: formData,
+                });
+                const payload = await response.json();
+
+                const replyNode = document.createElement('p');
+                replyNode.className = 'assistant-message rick';
+                replyNode.textContent = payload.reply;
+                assistantHistory.appendChild(replyNode);
+                assistantForm.reset();
+                assistantHistory.scrollTop = assistantHistory.scrollHeight;
+            });
+        </script>
+    </body>
+</html>

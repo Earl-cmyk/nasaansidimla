@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Earl - Home{% endblock %}
+
+{% block content %}
+<section class="dashboard-shell">
+    <header class="section-header">
+        <div>
+            <p class="eyebrow">dashboard</p>
+            <h1>Welcome back, Earl</h1>
+        </div>
+        <button id="quick-add-btn" class="primary-button" type="button">+ Quick Add</button>
+    </header>
+
+    <div class="bento-grid" id="dashboard-content">
+        <article class="card card-empty">
+            <p class="empty-state">No data yet. Start by adding notes, logging workouts, or tracking your spending.</p>
+        </article>
+    </div>
+</section>
+
+<!-- Quick Add Modal -->
+<div id="quick-add-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Quick Add</h2>
+            <button id="quick-add-close" class="ghost-button" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <p>Select what you'd like to add:</p>
+            <div class="button-grid">
+                <button class="secondary-button" data-action="note">📝 Note</button>
+                <button class="secondary-button" data-action="expense">💰 Expense</button>
+                <button class="secondary-button" data-action="workout">💪 Workout</button>
+                <button class="secondary-button" data-action="project">✍️ Project</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const quickAddBtn = document.getElementById('quick-add-btn');
+    const quickAddModal = document.getElementById('quick-add-modal');
+    const quickAddClose = document.getElementById('quick-add-close');
+    const actionButtons = document.querySelectorAll('[data-action]');
+
+    quickAddBtn.addEventListener('click', () => {
+        quickAddModal.classList.add('open');
+    });
+
+    quickAddClose.addEventListener('click', () => {
+        quickAddModal.classList.remove('open');
+    });
+
+    quickAddModal.addEventListener('click', (e) => {
+        if (e.target === quickAddModal) {
+            quickAddModal.classList.remove('open');
+        }
+    });
+
+    actionButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const action = e.target.dataset.action;
+            quickAddModal.classList.remove('open');
+            
+            // Navigate to appropriate page
+            if (action === 'note') window.location.href = '/notes';
+            else if (action === 'expense') window.location.href = '/wallets';
+            else if (action === 'workout') window.location.href = '/fitness';
+            else if (action === 'project') window.location.href = '/workbench';
+        });
+    });
+</script>
+{% endblock %}

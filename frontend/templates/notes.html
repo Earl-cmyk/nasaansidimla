@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Earl - Notes{% endblock %}
+
+{% block content %}
+<section class="page-panel">
+    <header class="section-header">
+        <div>
+            <p class="eyebrow">memory</p>
+            <h1>Notes</h1>
+        </div>
+        <button id="add-note-btn" class="primary-button" type="button">+ Add note</button>
+    </header>
+
+    <div id="notes-feed" class="notes-feed">
+        <div class="card card-empty">
+            <p class="empty-state">No notes yet. Click "Add note" to get started.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Add/Edit Note Modal -->
+<div id="note-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="note-modal-title">New note</h2>
+            <button id="note-modal-close" class="ghost-button" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="note-form">
+                <label>
+                    <span>Title</span>
+                    <input type="text" id="note-title" placeholder="Title of your note" required>
+                </label>
+                <label>
+                    <span>Content</span>
+                    <textarea id="note-content" rows="8" placeholder="Write your thought..."></textarea>
+                </label>
+                <label>
+                    <span>Tag</span>
+                    <input type="text" id="note-tag" placeholder="e.g., Idea vault, Research, Personal">
+                </label>
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">Save note</button>
+                    <button type="button" id="note-delete-btn" class="ghost-button" style="display: none;">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Note Detail Modal -->
+<div id="note-detail-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="detail-title">Note</h2>
+            <button id="detail-modal-close" class="ghost-button" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="detail-content" class="note-detail-content"></div>
+            <div class="detail-actions">
+                <button id="detail-edit-btn" class="secondary-button" type="button">Edit</button>
+                <button id="detail-close-btn" class="ghost-button" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const addNoteBtn = document.getElementById('add-note-btn');
+    const noteModal = document.getElementById('note-modal');
+    const noteModalClose = document.getElementById('note-modal-close');
+    const detailModal = document.getElementById('note-detail-modal');
+    const detailModalClose = document.getElementById('detail-modal-close');
+    const noteForm = document.getElementById('note-form');
+    const noteTitle = document.getElementById('note-title');
+    const noteContent = document.getElementById('note-content');
+    const noteTag = document.getElementById('note-tag');
+    const noteDeleteBtn = document.getElementById('note-delete-btn');
+    const detailEditBtn = document.getElementById('detail-edit-btn');
+    const detailCloseBtn = document.getElementById('detail-close-btn');
+    const notesFeed = document.getElementById('notes-feed');
+    let currentNoteId = null;
+
+    // Open add note modal
+    addNoteBtn.addEventListener('click', () => {
+        currentNoteId = null;
+        noteForm.reset();
+        noteDeleteBtn.style.display = 'none';
+        document.getElementById('note-modal-title').textContent = 'New note';
+        noteModal.classList.add('open');
+    });
+
+    // Close modals
+    [noteModalClose, detailModalClose].forEach(btn => {
+        btn.addEventListener('click', () => {
+            noteModal.classList.remove('open');
+            detailModal.classList.remove('open');
+        });
+    });
+
+    [noteModal, detailModal].forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('open');
+            }
+        });
+    });
+
+    async function loadNotes() {
+        const response = await fetch('/api/notes');
+        const notes = await response.json();
+        notesFeed.innerHTML = '';
+
+        if (!notes.length) {
+            notesFeed.innerHTML = '<div class="card card-empty"><p class="empty-state">No notes yet. Click "Add note" to get started.</p></div>';
+            return;
+        }
+
+        notes.forEach((note) => {
+            const noteCard = document.createElement('div');
+            noteCard.className = 'feed-card card';
+            noteCard.dataset.id = note.id;
+            noteCard.dataset.title = note.title;
+            noteCard.dataset.content = note.content;
+            noteCard.dataset.tag = note.tag || 'Note';
+
+            noteCard.innerHTML = `
+                <div class="card-header">
+                    <span>${note.tag || 'Note'}</span>
+                    <span class="note-date">${new Date(note.created_at).toLocaleDateString()}</span>
+                </div>
+                <h3>${note.title}</h3>
+                <p>${(note.content || '').substring(0, 100)}${(note.content || '').length > 100 ? '...' : ''}</p>
+            `;
+
+            noteCard.addEventListener('click', () => {
+                currentNoteId = noteCard.dataset.id;
+                detailModal.classList.add('open');
+                document.getElementById('detail-title').textContent = note.title;
+                document.getElementById('detail-content').innerHTML = `
+                    <div class="note-detail">
+                        <span class="detail-tag">${note.tag || 'Note'}</span>
+                        <p>${note.content || ''}</p>
+                    </div>
+                `;
+            });
+
+            notesFeed.appendChild(noteCard);
+        });
+    }
+
+    noteForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = noteTitle.value.trim();
+        const content = noteContent.value.trim();
+        const tag = noteTag.value.trim() || 'Note';
+
+        if (!title) {
+            alert('Please enter a title');
+            return;
+        }
+
+        const response = await fetch('/api/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content, tag }),
+        });
+
+        if (response.ok) {
+            noteModal.classList.remove('open');
+            noteForm.reset();
+            await loadNotes();
+        }
+    });
+
+    detailEditBtn.addEventListener('click', () => {
+        if (!currentNoteId) return;
+        const noteToEdit = Array.from(notesFeed.children).find((card) => card.dataset.id === String(currentNoteId));
+        if (!noteToEdit) return;
+
+        noteTitle.value = noteToEdit.dataset.title;
+        noteContent.value = noteToEdit.dataset.content;
+        noteTag.value = noteToEdit.dataset.tag || 'Note';
+        noteDeleteBtn.style.display = 'inline-block';
+        noteDeleteBtn.onclick = async () => {
+            const response = await fetch(`/api/notes/${currentNoteId}`, { method: 'DELETE' });
+            if (response.ok) {
+                noteModal.classList.remove('open');
+                detailModal.classList.remove('open');
+                await loadNotes();
+            }
+        };
+        document.getElementById('note-modal-title').textContent = 'Edit note';
+        detailModal.classList.remove('open');
+        noteModal.classList.add('open');
+    });
+
+    detailCloseBtn.addEventListener('click', () => {
+        detailModal.classList.remove('open');
+    });
+
+    loadNotes();
+</script>
+{% endblock %}

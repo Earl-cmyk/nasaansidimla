@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Earl - Calendar{% endblock %}
+
+{% block content %}
+<section class="page-panel">
+    <header class="section-header">
+        <div>
+            <p class="eyebrow">planner</p>
+            <h1>Calendar</h1>
+        </div>
+        <div class="view-picker" aria-label="Calendar view selector">
+            <button class="chip active" type="button" data-view="month">Month</button>
+            <button class="chip" type="button" data-view="week">Week</button>
+            <button class="chip" type="button" data-view="day">Day</button>
+        </div>
+    </header>
+
+    <div class="calendar-layout">
+        <div class="calendar-card">
+            <div class="calendar-grid month-grid" data-view-panel="month">
+                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                <button type="button" class="day muted">27</button>
+                <button type="button" class="day muted">28</button>
+                <button type="button" class="day muted">29</button>
+                <button type="button" class="day muted">30</button>
+                <button type="button" class="day">1</button>
+                <button type="button" class="day">2</button>
+                <button type="button" class="day">3</button>
+                <button type="button" class="day">4</button>
+                <button type="button" class="day">5</button>
+                <button type="button" class="day has-event">6</button>
+                <button type="button" class="day">7</button>
+                <button type="button" class="day">8</button>
+                <button type="button" class="day">9</button>
+                <button type="button" class="day">10</button>
+                <button type="button" class="day">11</button>
+                <button type="button" class="day has-event">12</button>
+                <button type="button" class="day">13</button>
+                <button type="button" class="day">14</button>
+                <button type="button" class="day">15</button>
+                <button type="button" class="day">16</button>
+                <button type="button" class="day">17</button>
+                <button type="button" class="day">18</button>
+                <button type="button" class="day has-event selected">19</button>
+                <button type="button" class="day">20</button>
+                <button type="button" class="day">21</button>
+                <button type="button" class="day">22</button>
+                <button type="button" class="day">23</button>
+                <button type="button" class="day">24</button>
+                <button type="button" class="day">25</button>
+                <button type="button" class="day">26</button>
+            </div>
+
+            <div class="calendar-grid month-grid" data-view-panel="week" style="display:none;">
+                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                <button type="button" class="day has-event selected">15</button>
+                <button type="button" class="day">16</button>
+                <button type="button" class="day">17</button>
+                <button type="button" class="day">18</button>
+                <button type="button" class="day has-event">19</button>
+                <button type="button" class="day">20</button>
+                <button type="button" class="day">21</button>
+            </div>
+
+            <div class="calendar-grid month-grid" data-view-panel="day" style="display:none;">
+                <button type="button" class="day selected">09:00</button>
+                <button type="button" class="day has-event">11:30</button>
+                <button type="button" class="day">13:00</button>
+                <button type="button" class="day">15:30</button>
+                <button type="button" class="day">19:00</button>
+            </div>
+        </div>
+
+        <aside class="calendar-sidebar">
+            <div class="mini-card">
+                <h3>Selected day</h3>
+                <p class="date-label">September 19</p>
+                <ul class="timeline-list">
+                    <li><span>08:00</span> Morning review</li>
+                    <li><span>11:30</span> Workout block</li>
+                    <li><span>15:00</span> Deep work</li>
+                    <li><span>19:00</span> Family time</li>
+                </ul>
+            </div>
+
+            <div class="mini-card">
+                <h3>Reminder details</h3>
+                <p><strong>Book sprint</strong></p>
+                <p>Draft the chapter outline and review notes for the next writing block.</p>
+                <div class="actions-row">
+                    <button class="secondary-button" type="button">Edit</button>
+                    <button class="ghost-button" type="button">Delete</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+</section>
+
+<script>
+    const calendarButtons = document.querySelectorAll('[data-view]');
+    const calendarPanels = document.querySelectorAll('[data-view-panel]');
+    const monthPanel = document.querySelector('[data-view-panel="month"]');
+    const weekPanel = document.querySelector('[data-view-panel="week"]');
+    const dayPanel = document.querySelector('[data-view-panel="day"]');
+    const selectedDate = new Date();
+
+    function renderDayCell(day) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'day';
+        if (day.is_selected) {
+            button.classList.add('selected');
+        }
+        if (day.events.length) {
+            button.classList.add('has-event');
+        }
+        if (!day.is_current_month) {
+            button.classList.add('muted');
+        }
+        button.textContent = new Date(day.date).getDate();
+        return button;
+    }
+
+    function renderCalendar(data) {
+        const panel = document.querySelector(`[data-view-panel="${data.view}"]`);
+        if (!panel) return;
+
+        panel.innerHTML = '';
+        if (data.view === 'day') {
+            panel.innerHTML = '<span>Agenda</span>';
+            const list = (data.days[0]?.events || []);
+            if (!list.length) {
+                panel.innerHTML += '<button type="button" class="day">No reminders</button>';
+                return;
+            }
+            list.forEach((event) => {
+                const cell = document.createElement('button');
+                cell.type = 'button';
+                cell.className = 'day has-event';
+                cell.textContent = `${event.time || 'All day'} · ${event.title}`;
+                panel.appendChild(cell);
+            });
+            return;
+        }
+
+        if (data.view === 'week') {
+            panel.innerHTML = '<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>';
+        } else {
+            panel.innerHTML = '<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>';
+        }
+
+        data.days.forEach((day) => {
+            panel.appendChild(renderDayCell(day));
+        });
+    }
+
+    async function loadCalendar(view = 'month') {
+        const today = new Date();
+        const dateString = today.toISOString().slice(0, 10);
+        const response = await fetch(`/api/calendar?view=${view}&date=${encodeURIComponent(dateString)}`);
+        const data = await response.json();
+        renderCalendar(data);
+    }
+
+    calendarButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const target = button.dataset.view;
+            calendarButtons.forEach((chip) => chip.classList.toggle('active', chip === button));
+            calendarPanels.forEach((panel) => {
+                panel.style.display = panel.dataset.viewPanel === target ? 'grid' : 'none';
+            });
+            loadCalendar(target);
+        });
+    });
+
+    loadCalendar('month');
+</script>
+{% endblock %}
