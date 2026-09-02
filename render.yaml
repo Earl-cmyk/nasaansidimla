@@ -1,10 +1,9 @@
 services:
   - type: web
     name: nasaansidimla
-    runtime: python
+    runtime: docker
     plan: free
-    buildCommand: apt-get update && apt-get install -y ffmpeg && pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT backend.app:app
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /
     envVars:
       - key: DATABASE_URL

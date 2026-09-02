@@ -1,26 +1,25 @@
 # Deployment
 
-## Shared environment variable
-
-Create `DATABASE_URL` on both hosts. Use the Supabase connection string in the format:
-
-`postgresql://USER:PASSWORD@HOST:PORT/postgres`
-
-Use the session pooler connection string if the direct database host is not reachable from the host. Do not commit `.env` or put the password in `render.yaml`, `vercel.json`, or source files.
-
 ## Render
 
-1. Push this repository to GitHub.
-2. In Render, choose **New > Blueprint** and select the repository, or create a **Web Service** from it.
-3. If using the Blueprint, approve the `DATABASE_URL` secret prompt. If creating the service manually, add `DATABASE_URL` under **Environment**.
-4. Use the root directory, `Python 3`, and the committed `render.yaml` settings.
-5. Deploy. Render runs `pip install -r requirements.txt` and starts Gunicorn on Render's assigned port.
+Use the committed `render.yaml` Blueprint. It uses the root `Dockerfile`, which installs ffmpeg inside the image. Do not add an `apt-get` command to a native Python build command.
+
+Required Render environment variables:
+
+- `DATABASE_URL`: your Postgres/Supabase connection string
+- `ALPHA_VANTAGE_API_KEY`: your Alpha Vantage API key
+
+After adding or changing environment variables, trigger a redeploy. Render's free plan may time out or sleep during long YouTube conversions; the service limits conversions to 15 minutes and 250 MB.
 
 ## Vercel
 
-1. In Vercel, choose **Add New > Project** and import the same GitHub repository.
-2. Leave the root directory as `.` and let Vercel detect the Python function in `api/index.py`.
-3. Add `DATABASE_URL` under **Settings > Environment Variables** for Production (and Preview if needed).
-4. Deploy, then redeploy after changing environment variables.
+Vercel uses `api/index.py` and `vercel.json`; it does not use the Dockerfile. Add these Production environment variables in the Vercel project settings:
 
-The two deployments are separate frontends/backends serving the same Flask application and database. Run the schema once against the selected Postgres database if it is empty; application startup also attempts schema initialization.
+- `DATABASE_URL`
+- `ALPHA_VANTAGE_API_KEY`
+
+Redeploy after saving them. The Flask APIs and market quotes work on Vercel, but ffmpeg/yt-dlp conversion should be used through Render because Vercel's serverless runtime does not guarantee ffmpeg or long-running temporary conversion jobs.
+
+## Git safety
+
+Never commit `.env`, API keys, database passwords, generated media, or virtual environments. The repository includes `.gitignore` and `.dockerignore` rules for these files.
