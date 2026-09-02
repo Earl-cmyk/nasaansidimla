@@ -183,6 +183,13 @@ input:focus, textarea:focus, select:focus, button:focus-visible, [contenteditabl
     box-shadow: 0 18px 40px var(--shadow);
 }
 
+.dashboard-shell {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding: 8px 0 0;
+}
+
 .section-header {
     display: flex;
     align-items: center;
@@ -320,11 +327,21 @@ h1, h2, h3, h4 {
     align-items: start;
 }
 
+.workbench-stage,
+.works-layout {
+    align-items: stretch;
+}
+
 .workbench-tools {
     display: grid;
     gap: 10px;
     position: sticky;
     top: 90px;
+}
+
+.workbench-tools .secondary-button {
+    min-height: 48px;
+    text-align: left;
 }
 
 .active-tool {
@@ -338,8 +355,8 @@ h1, h2, h3, h4 {
     aspect-ratio: 16 / 9;
     background: #fbfaf5;
     color: #20262c;
-    border: 8px solid #d8d3c5;
-    border-radius: 4px;
+    border: 1px solid rgba(216, 211, 197, 0.65);
+    border-radius: 14px;
     padding: 24px;
 }
 
@@ -624,6 +641,93 @@ h1, h2, h3, h4 {
     gap: 10px;
 }
 
+.calendar-grid .day {
+    min-height: 92px;
+    height: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    text-align: left;
+}
+
+.day-event-label {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--primary);
+    font-size: 0.72rem;
+}
+
+.day-agenda {
+    display: grid;
+    gap: 0;
+    max-height: 680px;
+    overflow-y: auto;
+}
+
+.agenda-heading,
+.agenda-all-day,
+.agenda-hour {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+
+.agenda-heading {
+    grid-template-columns: 1fr auto;
+    padding-bottom: 14px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.agenda-hour {
+    width: 100%;
+    min-height: 54px;
+    padding: 10px 0;
+    border: none;
+    border-top: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    text-align: left;
+    cursor: pointer;
+}
+
+.agenda-hour > div,
+.agenda-all-day > div {
+    display: grid;
+    gap: 6px;
+    min-height: 30px;
+}
+
+.agenda-all-day {
+    padding: 10px 0;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+}
+
+.agenda-event {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid rgba(124, 199, 255, 0.25);
+    border-radius: 8px;
+    background: rgba(124, 199, 255, 0.1);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.agenda-event strong {
+    color: var(--primary);
+    white-space: nowrap;
+}
+
 .calendar-grid span {
     text-align: center;
     color: var(--muted);
@@ -680,6 +784,24 @@ h1, h2, h3, h4 {
     border-bottom: 1px solid var(--line);
     padding-bottom: 10px;
     color: var(--muted);
+}
+
+.timeline-event {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    text-align: left;
+    cursor: pointer;
+}
+
+.timeline-event strong {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .timeline-list li span {
@@ -778,14 +900,25 @@ h1, h2, h3, h4 {
 }
 
 .body-visual {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(120px, 1fr));
-    gap: 12px;
+    position: relative;
+    min-height: 440px;
     margin-top: 18px;
+    overflow: hidden;
+    border-radius: 16px;
+    background: radial-gradient(circle at 50% 38%, rgba(124, 199, 255, 0.15), transparent 38%), rgba(7, 12, 16, 0.35);
 }
 
+.body-silhouette { position: absolute; inset: 22px 35% 22px; opacity: 0.35; }
+.body-silhouette .head { display: block; width: 54px; height: 54px; margin: auto; border-radius: 50%; background: #bac5cd; }
+.body-silhouette .torso { display: block; height: 210px; margin: 8px auto 0; border-radius: 42% 42% 28% 28%; background: #bac5cd; }
+.body-silhouette .leg { position: absolute; top: 260px; width: 42px; height: 140px; border-radius: 20px; background: #bac5cd; }
+.body-silhouette .leg.left { left: 22%; transform: rotate(3deg); }
+.body-silhouette .leg.right { right: 22%; transform: rotate(-3deg); }
+
 .muscle {
-    min-height: 72px;
+    position: absolute;
+    min-height: 42px;
+    padding: 8px 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -801,10 +934,46 @@ h1, h2, h3, h4 {
     background: rgba(124, 199, 255, 0.1);
 }
 
+.muscle-chest { top: 125px; left: 50%; transform: translateX(-50%); }
+.muscle-arms { top: 150px; left: 16%; }
+.muscle-shoulders { top: 92px; left: 50%; transform: translateX(-50%); }
+.muscle-core { top: 205px; left: 50%; transform: translateX(-50%); }
+.muscle-legs { bottom: 30px; left: 50%; transform: translateX(-50%); }
+.muscle-back { top: 260px; right: 15%; }
+
 .muscle:hover {
-    transform: scale(1.05);
+    transform: translateY(-2px);
     border-color: rgba(255, 255, 255, 0.2);
 }
+
+.muscle-chest:hover, .muscle-shoulders:hover, .muscle-core:hover, .muscle-legs:hover { transform: translateX(-50%) translateY(-2px); }
+
+#exercise-modal .modal-content,
+#reminder-detail-modal .modal-content {
+    max-width: 520px;
+}
+
+#exercise-modal .modal-body,
+#reminder-detail-modal .modal-body {
+    display: grid;
+    gap: 16px;
+}
+
+.exercise-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 10px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.exercise-option input { width: auto; min-height: auto; grid-row: span 2; }
+.exercise-option span { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+
+.works-layout > .card { min-height: 240px; }
+.works-layout > .card h3 { color: var(--primary); margin-bottom: 14px; }
 
 .muscle-info {
     margin: 0 0 12px;
@@ -1466,6 +1635,12 @@ h1, h2, h3, h4 {
         align-items: flex-start;
     }
 
+    .agenda-heading,
+    .agenda-all-day,
+    .agenda-hour {
+        grid-template-columns: 64px minmax(0, 1fr);
+    }
+
     .assistant-drawer {
         width: 100%;
         border-left: none;
@@ -1478,4 +1653,16 @@ h1, h2, h3, h4 {
     .assistant-drawer.open {
         transform: translateY(0);
     }
+}
+
+@media (max-width: 620px) {
+    .body-visual { min-height: 380px; }
+    .body-silhouette { inset: 20px 31% 20px; }
+    .muscle-arms { left: 5%; }
+    .muscle-back { right: 5%; }
+    .muscle-legs { bottom: 18px; }
+    .agenda-heading { grid-template-columns: 1fr; }
+    .agenda-heading .secondary-button { width: 100%; }
+    .agenda-hour { grid-template-columns: 52px minmax(0, 1fr); gap: 8px; }
+    .agenda-event { flex-direction: column; gap: 2px; }
 }

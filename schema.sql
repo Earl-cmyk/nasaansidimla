@@ -25,8 +25,19 @@ CREATE TABLE IF NOT EXISTS weekly_schedules (
     description TEXT,
     start_date DATE NOT NULL,
     end_date DATE,
+    weekday INTEGER NOT NULL DEFAULT 0 CHECK (weekday BETWEEN 0 AND 6),
+    time TIME NOT NULL DEFAULT '09:00',
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE weekly_schedules ADD COLUMN IF NOT EXISTS weekday INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE weekly_schedules ADD COLUMN IF NOT EXISTS time TIME NOT NULL DEFAULT '09:00';
+
+CREATE TABLE IF NOT EXISTS weekly_schedule_exceptions (
+    schedule_id BIGINT NOT NULL REFERENCES weekly_schedules(id) ON DELETE CASCADE,
+    skipped_date DATE NOT NULL,
+    PRIMARY KEY (schedule_id, skipped_date)
 );
 
 -- Notes table

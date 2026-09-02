@@ -373,8 +373,8 @@ def api_weekly_schedules():
             with get_db() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "INSERT INTO weekly_schedules (title, description, start_date, end_date) VALUES (%s, %s, %s, %s) RETURNING id",
-                        ((data.get("title") or "Weekly schedule").strip(), data.get("description") or "", data.get("start_date") or datetime.now(timezone.utc).date().isoformat(), data.get("end_date") or None),
+                        "INSERT INTO weekly_schedules (title, description, start_date, end_date, weekday, time) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                        ((data.get("title") or "Weekly schedule").strip(), data.get("description") or "", data.get("start_date") or datetime.now(timezone.utc).date().isoformat(), data.get("end_date") or None, int(data.get("weekday", 0)), data.get("time") or "09:00"),
                     )
                     schedule_id = cursor.fetchone()[0]
             return jsonify({"status": "ok", "id": schedule_id}), 201
@@ -383,9 +383,9 @@ def api_weekly_schedules():
     try:
         with get_db() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SELECT id, title, description, start_date, end_date, active FROM weekly_schedules ORDER BY created_at DESC")
+                cursor.execute("SELECT id, title, description, start_date, end_date, weekday, time, active FROM weekly_schedules ORDER BY created_at DESC")
                 rows = cursor.fetchall()
-        return jsonify([{"id": row[0], "title": row[1], "description": row[2], "start_date": str(row[3]), "end_date": str(row[4]) if row[4] else None, "active": row[5]} for row in rows])
+            return jsonify([{"id": row[0], "title": row[1], "description": row[2], "start_date": str(row[3]), "end_date": str(row[4]) if row[4] else None, "weekday": row[5], "time": str(row[6]), "active": row[7]} for row in rows])
     except Exception:
         return jsonify([])
 
@@ -396,6 +396,23 @@ def api_stop_weekly_schedule(schedule_id):
         with get_db() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("UPDATE weekly_schedules SET active = FALSE, end_date = COALESCE(end_date, CURRENT_DATE) WHERE id = %s", (schedule_id,))
+        return jsonify({"status": "ok"})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
+
+
+@app.route("/api/weekly-schedules/<int:schedule_id>/skip", methods=["POST"])
+def api_skip_weekly_schedule(schedule_id):
+    skipped_date = (request.get_json() or {}).get("date")
+    if not skipped_date:
+        return jsonify({"status": "error", "message": "A date is required."}), 400
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO weekly_schedule_exceptions (schedule_id, skipped_date) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (schedule_id, skipped_date),
+                )
         return jsonify({"status": "ok"})
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 400
@@ -428,12 +445,35 @@ def api_get_calendar():
                     end_day = end_day + timedelta(days=(6 - end_day.weekday()))
 
                 cursor.execute(
-                    "SELECT id, title, description, date, time, done FROM reminders WHERE date >= %s AND date <= %s ORDER BY date, time",
+                    "SELECT id, title, description, date, time, done, NULL::BIGINT AS schedule_id FROM reminders WHERE date >= %s AND date <= %s ORDER BY date, time",
                     (start_day.isoformat(), end_day.isoformat()),
                 )
                 rows = cursor.fetchall()
+                cursor.execute(
+                    """SELECT id, title, description, start_date, end_date, weekday, time
+                       FROM weekly_schedules
+                       WHERE active = TRUE AND start_date <= %s AND (end_date IS NULL OR end_date >= %s)""",
+                    (end_day.isoformat(), start_day.isoformat()),
+                )
+                schedules = cursor.fetchall()
+                cursor.execute(
+                    "SELECT schedule_id, skipped_date FROM weekly_schedule_exceptions WHERE skipped_date >= %s AND skipped_date <= %s",
+                    (start_day.isoformat(), end_day.isoformat()),
+                )
+                exceptions = {(row[0], str(row[1])) for row in cursor.fetchall()}
     except Exception:
         rows = []
+        schedules = []
+        exceptions = set()
+
+    for schedule in schedules:
+        schedule_id, title, description, start_date, end_date, weekday, schedule_time = schedule
+        current = max(start_day, start_date)
+        while current <= end_day:
+            if current.weekday() == weekday and (end_date is None or current <= end_date) and (schedule_id, current.isoformat()) not in exceptions:
+                rows.append((schedule_id, title, description, current, schedule_time, False, schedule_id))
+            current += timedelta(days=1)
+    rows.sort(key=lambda row: (str(row[3]), str(row[4])))
 
     reminder_map = {}
     for row in rows:
@@ -445,6 +485,7 @@ def api_get_calendar():
             "date": str(row[3]),
             "time": str(row[4]),
             "done": bool(row[5]),
+            "schedule_id": row[6],
         })
 
     if view == "day":

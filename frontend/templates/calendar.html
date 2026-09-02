@@ -54,20 +54,39 @@
 
 <div id="schedule-form-modal" class="modal">
     <div class="modal-content"><div class="modal-header"><h2>New weekly schedule</h2><button id="schedule-form-close" class="ghost-button" type="button">✕</button></div><div class="modal-body">
-        <form id="schedule-form"><input id="schedule-title" placeholder="Schedule title" required><textarea id="schedule-description" placeholder="What repeats each week?"></textarea><label>Starts<input id="schedule-start" type="date" required></label><label>Stops on (optional)<input id="schedule-end" type="date"></label><button class="primary-button" type="submit">Start schedule</button></form>
+        <form id="schedule-form"><input id="schedule-title" placeholder="Schedule title" required><textarea id="schedule-description" placeholder="What repeats each week?"></textarea><label>Repeats on<select id="schedule-weekday"><option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option><option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option></select></label><label>Time<input id="schedule-time" type="time" value="09:00" required></label><label>Starts<input id="schedule-start" type="date" required></label><label>Stops on (optional)<input id="schedule-end" type="date"></label><button class="primary-button" type="submit">Start schedule</button></form>
+    </div></div>
+</div>
+
+<div id="reminder-detail-modal" class="modal">
+    <div class="modal-content"><div class="modal-header"><h2 id="reminder-detail-title">Reminder</h2><button id="reminder-detail-close" class="ghost-button" type="button">✕</button></div><div class="modal-body">
+        <form id="reminder-detail-form"><label>Reminder<input id="detail-reminder-title" required></label><label>Notes<textarea id="detail-reminder-description"></textarea></label><label>Date<input id="detail-reminder-date" type="date" required></label><label>Time<input id="detail-reminder-time" type="time" required></label><div class="form-actions"><button id="detail-cancel-occurrence" class="danger-button" type="button">Cancel this date</button><button id="detail-save" class="primary-button" type="submit">Save changes</button></div></form>
     </div></div>
 </div>
 
 <script>
     const calendarButtons = document.querySelectorAll('[data-view]');
     const calendarPanels = document.querySelectorAll('[data-view-panel]');
-    const monthPanel = document.querySelector('[data-view-panel="month"]');
-    const weekPanel = document.querySelector('[data-view-panel="week"]');
-    const dayPanel = document.querySelector('[data-view-panel="day"]');
-    const selectedDate = new Date();
+    const todayString = new Date().toISOString().slice(0, 10);
+    let currentView = 'month';
+    let currentDate = todayString;
     const calendarFormModal = document.getElementById('calendar-form-modal');
     const scheduleFormModal = document.getElementById('schedule-form-modal');
+    const reminderDetailModal = document.getElementById('reminder-detail-modal');
     let latestCalendarData = null;
+    let selectedReminder = null;
+
+    function formatTime(time) {
+        if (!time) return 'All day';
+        return time.slice(0, 5);
+    }
+
+    function openReminderForm(date = currentDate, time = '09:00') {
+        document.getElementById('calendar-form').reset();
+        document.getElementById('calendar-date').value = date;
+        document.getElementById('calendar-time').value = time;
+        calendarFormModal.classList.add('open');
+    }
 
     function renderDayCell(day) {
         const button = document.createElement('button');
@@ -82,77 +101,153 @@
         if (!day.is_current_month) {
             button.classList.add('muted');
         }
-        button.textContent = new Date(day.date).getDate();
+        const dayNumber = document.createElement('strong');
+        dayNumber.textContent = new Date(`${day.date}T00:00:00`).getDate();
+        button.appendChild(dayNumber);
+        day.events.slice(0, 3).forEach((event) => {
+            const label = document.createElement('span');
+            label.className = 'day-event-label';
+            label.textContent = `${formatTime(event.time)} ${event.title}`;
+            button.appendChild(label);
+        });
+        button.addEventListener('click', () => {
+            if (currentView === 'month' || (currentView === 'week' && day.is_selected === false)) {
+                loadCalendar('week', day.date);
+            } else if (currentView === 'week') {
+                loadCalendar('day', day.date);
+            } else {
+                openReminderForm(day.date);
+            }
+        });
         return button;
+    }
+
+    function openReminderDetail(event) {
+        selectedReminder = event;
+        document.getElementById('detail-reminder-title').value = event.title;
+        document.getElementById('detail-reminder-description').value = event.description || '';
+        document.getElementById('detail-reminder-date').value = event.date;
+        document.getElementById('detail-reminder-time').value = event.time?.slice(0, 5) || '09:00';
+        document.getElementById('detail-cancel-occurrence').textContent = event.schedule_id ? 'Cancel this date' : 'Delete reminder';
+        document.getElementById('detail-save').disabled = Boolean(event.schedule_id);
+        reminderDetailModal.classList.add('open');
+    }
+
+    function renderDayAgenda(day) {
+        const panel = document.querySelector('[data-view-panel="day"]');
+        panel.className = 'day-agenda';
+        panel.innerHTML = '';
+        const heading = document.createElement('div');
+        heading.className = 'agenda-heading';
+        heading.innerHTML = '<span>Daily agenda</span><button type="button" class="secondary-button">Add reminder</button>';
+        heading.querySelector('button').addEventListener('click', () => openReminderForm(day.date));
+        panel.appendChild(heading);
+        const events = day.events || [];
+        const allDay = events.filter((event) => !event.time || event.time.startsWith('00:00'));
+        if (allDay.length) {
+            const allDayRow = document.createElement('div');
+            allDayRow.className = 'agenda-all-day';
+            allDayRow.innerHTML = '<span>All day</span><div></div>';
+            allDay.forEach((event) => addAgendaEvent(allDayRow.lastElementChild, event));
+            panel.appendChild(allDayRow);
+        }
+        const timedEvents = events.filter((event) => event.time && !event.time.startsWith('00:00'));
+        if (!timedEvents.length) {
+            const empty = document.createElement('p');
+            empty.className = 'empty-state-text';
+            empty.textContent = 'No timed reminders yet. Click any time below to add one.';
+            panel.appendChild(empty);
+        }
+        for (let hour = 0; hour < 24; hour += 1) {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'agenda-hour';
+            row.dataset.time = `${String(hour).padStart(2, '0')}:00`;
+            row.innerHTML = `<span>${String(hour).padStart(2, '0')}:00</span><div></div>`;
+            row.addEventListener('click', () => openReminderForm(day.date, row.dataset.time));
+            timedEvents.filter((event) => Number(event.time.slice(0, 2)) === hour).forEach((event) => addAgendaEvent(row.lastElementChild, event));
+            panel.appendChild(row);
+        }
+    }
+
+    function addAgendaEvent(container, event) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'agenda-event';
+        item.innerHTML = `<strong>${formatTime(event.time)}</strong><span></span>`;
+        item.lastElementChild.textContent = event.title;
+        item.addEventListener('click', (clickEvent) => { clickEvent.stopPropagation(); openReminderDetail(event); });
+        container.appendChild(item);
     }
 
     function renderCalendar(data) {
         latestCalendarData = data;
+        currentView = data.view;
+        currentDate = data.date;
+        calendarButtons.forEach((button) => button.classList.toggle('active', button.dataset.view === data.view));
+        calendarPanels.forEach((panel) => { panel.style.display = panel.dataset.viewPanel === data.view ? 'grid' : 'none'; });
         const panel = document.querySelector(`[data-view-panel="${data.view}"]`);
         if (!panel) return;
 
         panel.innerHTML = '';
         if (data.view === 'day') {
-            panel.innerHTML = '<span>Agenda</span>';
-            const list = (data.days[0]?.events || []);
-            if (!list.length) {
-                panel.innerHTML += '<button type="button" class="day">No reminders</button>';
-                return;
-            }
-            list.forEach((event) => {
-                const cell = document.createElement('button');
-                cell.type = 'button';
-                cell.className = 'day has-event';
-                cell.textContent = `${event.time || 'All day'} · ${event.title}`;
-                panel.appendChild(cell);
-            });
+            renderDayAgenda(data.days[0] || { date: data.date, events: [] });
+            updateSelectedDay(data.days[0]);
             return;
         }
 
-        if (data.view === 'week') {
-            panel.innerHTML = '<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>';
-        } else {
-            panel.innerHTML = '<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>';
-        }
+        panel.className = 'calendar-grid';
+        panel.innerHTML = '<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>';
 
         data.days.forEach((day) => {
             panel.appendChild(renderDayCell(day));
         });
         const selected = data.days.find((day) => day.is_selected) || data.days[0];
-        document.getElementById('selected-date-label').textContent = selected?.date || '';
-        const events = selected?.events || [];
-        document.getElementById('selected-events').innerHTML = events.length ? events.map((event) => `<li><span>${event.time}</span>${event.title}<button type="button" data-delete-reminder="${event.id}">Delete</button></li>`).join('') : '<li>No reminders</li>';
+        updateSelectedDay(selected);
     }
 
-    async function loadCalendar(view = 'month') {
-        const today = new Date();
-        const dateString = today.toISOString().slice(0, 10);
-        const response = await fetch(`/api/calendar?view=${view}&date=${encodeURIComponent(dateString)}`);
+    function updateSelectedDay(selected) {
+        if (!selected) return;
+        document.getElementById('selected-date-label').textContent = selected?.date || '';
+        const events = selected?.events || [];
+        const list = document.getElementById('selected-events');
+        list.innerHTML = '';
+        if (!events.length) { list.innerHTML = '<li>No reminders</li>'; return; }
+        events.forEach((event) => {
+            const item = document.createElement('li');
+            const button = document.createElement('button');
+            button.type = 'button'; button.className = 'timeline-event';
+            button.innerHTML = `<span>${formatTime(event.time)}</span><strong></strong>`;
+            button.lastElementChild.textContent = event.title;
+            button.addEventListener('click', () => openReminderDetail(event));
+            item.appendChild(button); list.appendChild(item);
+        });
+    }
+
+    async function loadCalendar(view = currentView, date = currentDate) {
+        const response = await fetch(`/api/calendar?view=${view}&date=${encodeURIComponent(date)}`);
         const data = await response.json();
         renderCalendar(data);
     }
 
     calendarButtons.forEach((button) => {
         button.addEventListener('click', () => {
-            const target = button.dataset.view;
-            calendarButtons.forEach((chip) => chip.classList.toggle('active', chip === button));
-            calendarPanels.forEach((panel) => {
-                panel.style.display = panel.dataset.viewPanel === target ? 'grid' : 'none';
-            });
-            loadCalendar(target);
+            loadCalendar(button.dataset.view, currentDate);
         });
     });
 
-    document.getElementById('new-reminder-btn').addEventListener('click', () => { calendarFormModal.classList.add('open'); document.getElementById('calendar-date').value = new Date().toISOString().slice(0, 10); });
+    document.getElementById('new-reminder-btn').addEventListener('click', () => openReminderForm());
     document.getElementById('calendar-form-close').addEventListener('click', () => calendarFormModal.classList.remove('open'));
     document.getElementById('schedule-form-close').addEventListener('click', () => scheduleFormModal.classList.remove('open'));
-    document.getElementById('new-schedule-btn').addEventListener('click', () => { scheduleFormModal.classList.add('open'); document.getElementById('schedule-start').value = new Date().toISOString().slice(0, 10); });
+    document.getElementById('new-schedule-btn').addEventListener('click', () => { scheduleFormModal.classList.add('open'); document.getElementById('schedule-start').value = currentDate; });
     document.getElementById('calendar-form').addEventListener('submit', async (event) => { event.preventDefault(); await fetch('/api/reminders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: document.getElementById('calendar-title').value, description: document.getElementById('calendar-description').value, date: document.getElementById('calendar-date').value, time: document.getElementById('calendar-time').value }) }); calendarFormModal.classList.remove('open'); loadCalendar(); });
-    document.getElementById('selected-events').addEventListener('click', async (event) => { const id = event.target.dataset.deleteReminder; if (id) { await fetch(`/api/reminders/${id}`, { method: 'DELETE' }); loadCalendar(); } });
-    document.getElementById('schedule-form').addEventListener('submit', async (event) => { event.preventDefault(); await fetch('/api/weekly-schedules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: document.getElementById('schedule-title').value, description: document.getElementById('schedule-description').value, start_date: document.getElementById('schedule-start').value, end_date: document.getElementById('schedule-end').value || null }) }); scheduleFormModal.classList.remove('open'); loadSchedule(); });
+    document.getElementById('schedule-form').addEventListener('submit', async (event) => { event.preventDefault(); await fetch('/api/weekly-schedules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: document.getElementById('schedule-title').value, description: document.getElementById('schedule-description').value, weekday: document.getElementById('schedule-weekday').value, time: document.getElementById('schedule-time').value, start_date: document.getElementById('schedule-start').value, end_date: document.getElementById('schedule-end').value || null }) }); scheduleFormModal.classList.remove('open'); loadSchedule(); loadCalendar(); });
+    document.getElementById('reminder-detail-close').addEventListener('click', () => reminderDetailModal.classList.remove('open'));
+    document.getElementById('reminder-detail-form').addEventListener('submit', async (event) => { event.preventDefault(); if (!selectedReminder || selectedReminder.schedule_id) return; await fetch(`/api/reminders/${selectedReminder.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: document.getElementById('detail-reminder-title').value, description: document.getElementById('detail-reminder-description').value, date: document.getElementById('detail-reminder-date').value, time: document.getElementById('detail-reminder-time').value, done: selectedReminder.done }) }); reminderDetailModal.classList.remove('open'); loadCalendar(); });
+    document.getElementById('detail-cancel-occurrence').addEventListener('click', async () => { if (!selectedReminder) return; const url = selectedReminder.schedule_id ? `/api/weekly-schedules/${selectedReminder.schedule_id}/skip` : `/api/reminders/${selectedReminder.id}`; const options = selectedReminder.schedule_id ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: selectedReminder.date }) } : { method: 'DELETE' }; await fetch(url, options); reminderDetailModal.classList.remove('open'); loadCalendar(); });
     async function loadSchedule() { const response = await fetch('/api/weekly-schedules'); const schedules = await response.json(); const active = schedules.find((schedule) => schedule.active); document.getElementById('schedule-status').textContent = active ? `${active.title} · starts ${active.start_date}` : 'No active weekly schedule.'; const button = document.getElementById('stop-schedule-btn'); button.disabled = !active; button.onclick = active ? async () => { await fetch(`/api/weekly-schedules/${active.id}/stop`, { method: 'POST' }); loadSchedule(); } : null; }
 
-    loadCalendar('month');
+    loadCalendar('month', todayString);
     loadSchedule();
 </script>
 {% endblock %}
