@@ -13,89 +13,50 @@
             <button class="chip active" type="button" data-view="month">Month</button>
             <button class="chip" type="button" data-view="week">Week</button>
             <button class="chip" type="button" data-view="day">Day</button>
+            <button id="new-reminder-btn" class="primary-button" type="button">New reminder</button>
+            <button id="new-schedule-btn" class="secondary-button" type="button">Weekly schedule</button>
         </div>
     </header>
 
     <div class="calendar-layout">
         <div class="calendar-card">
             <div class="calendar-grid month-grid" data-view-panel="month">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-                <button type="button" class="day muted">27</button>
-                <button type="button" class="day muted">28</button>
-                <button type="button" class="day muted">29</button>
-                <button type="button" class="day muted">30</button>
-                <button type="button" class="day">1</button>
-                <button type="button" class="day">2</button>
-                <button type="button" class="day">3</button>
-                <button type="button" class="day">4</button>
-                <button type="button" class="day">5</button>
-                <button type="button" class="day has-event">6</button>
-                <button type="button" class="day">7</button>
-                <button type="button" class="day">8</button>
-                <button type="button" class="day">9</button>
-                <button type="button" class="day">10</button>
-                <button type="button" class="day">11</button>
-                <button type="button" class="day has-event">12</button>
-                <button type="button" class="day">13</button>
-                <button type="button" class="day">14</button>
-                <button type="button" class="day">15</button>
-                <button type="button" class="day">16</button>
-                <button type="button" class="day">17</button>
-                <button type="button" class="day">18</button>
-                <button type="button" class="day has-event selected">19</button>
-                <button type="button" class="day">20</button>
-                <button type="button" class="day">21</button>
-                <button type="button" class="day">22</button>
-                <button type="button" class="day">23</button>
-                <button type="button" class="day">24</button>
-                <button type="button" class="day">25</button>
-                <button type="button" class="day">26</button>
             </div>
 
             <div class="calendar-grid month-grid" data-view-panel="week" style="display:none;">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-                <button type="button" class="day has-event selected">15</button>
-                <button type="button" class="day">16</button>
-                <button type="button" class="day">17</button>
-                <button type="button" class="day">18</button>
-                <button type="button" class="day has-event">19</button>
-                <button type="button" class="day">20</button>
-                <button type="button" class="day">21</button>
             </div>
 
             <div class="calendar-grid month-grid" data-view-panel="day" style="display:none;">
-                <button type="button" class="day selected">09:00</button>
-                <button type="button" class="day has-event">11:30</button>
-                <button type="button" class="day">13:00</button>
-                <button type="button" class="day">15:30</button>
-                <button type="button" class="day">19:00</button>
             </div>
         </div>
 
         <aside class="calendar-sidebar">
-            <div class="mini-card">
+            <div class="mini-card" id="selected-day-card">
                 <h3>Selected day</h3>
-                <p class="date-label">September 19</p>
-                <ul class="timeline-list">
-                    <li><span>08:00</span> Morning review</li>
-                    <li><span>11:30</span> Workout block</li>
-                    <li><span>15:00</span> Deep work</li>
-                    <li><span>19:00</span> Family time</li>
-                </ul>
+                <p class="date-label" id="selected-date-label"></p>
+                <ul class="timeline-list" id="selected-events"></ul>
             </div>
 
-            <div class="mini-card">
+            <div class="mini-card" id="schedule-card">
                 <h3>Reminder details</h3>
-                <p><strong>Book sprint</strong></p>
-                <p>Draft the chapter outline and review notes for the next writing block.</p>
-                <div class="actions-row">
-                    <button class="secondary-button" type="button">Edit</button>
-                    <button class="ghost-button" type="button">Delete</button>
-                </div>
+                <p id="schedule-status">No weekly schedule loaded.</p>
+                <button id="stop-schedule-btn" class="ghost-button" type="button" disabled>Stop active schedule</button>
             </div>
         </aside>
     </div>
 </section>
+
+<div id="calendar-form-modal" class="modal">
+    <div class="modal-content"><div class="modal-header"><h2 id="calendar-form-title">New reminder</h2><button id="calendar-form-close" class="ghost-button" type="button">✕</button></div><div class="modal-body">
+        <form id="calendar-form"><input id="calendar-title" placeholder="Title" required><textarea id="calendar-description" placeholder="Description"></textarea><label>Date<input id="calendar-date" type="date" required></label><label>Time<input id="calendar-time" type="time" value="09:00" required></label><button class="primary-button" type="submit">Save</button></form>
+    </div></div>
+</div>
+
+<div id="schedule-form-modal" class="modal">
+    <div class="modal-content"><div class="modal-header"><h2>New weekly schedule</h2><button id="schedule-form-close" class="ghost-button" type="button">✕</button></div><div class="modal-body">
+        <form id="schedule-form"><input id="schedule-title" placeholder="Schedule title" required><textarea id="schedule-description" placeholder="What repeats each week?"></textarea><label>Starts<input id="schedule-start" type="date" required></label><label>Stops on (optional)<input id="schedule-end" type="date"></label><button class="primary-button" type="submit">Start schedule</button></form>
+    </div></div>
+</div>
 
 <script>
     const calendarButtons = document.querySelectorAll('[data-view]');
@@ -104,6 +65,9 @@
     const weekPanel = document.querySelector('[data-view-panel="week"]');
     const dayPanel = document.querySelector('[data-view-panel="day"]');
     const selectedDate = new Date();
+    const calendarFormModal = document.getElementById('calendar-form-modal');
+    const scheduleFormModal = document.getElementById('schedule-form-modal');
+    let latestCalendarData = null;
 
     function renderDayCell(day) {
         const button = document.createElement('button');
@@ -123,6 +87,7 @@
     }
 
     function renderCalendar(data) {
+        latestCalendarData = data;
         const panel = document.querySelector(`[data-view-panel="${data.view}"]`);
         if (!panel) return;
 
@@ -153,6 +118,10 @@
         data.days.forEach((day) => {
             panel.appendChild(renderDayCell(day));
         });
+        const selected = data.days.find((day) => day.is_selected) || data.days[0];
+        document.getElementById('selected-date-label').textContent = selected?.date || '';
+        const events = selected?.events || [];
+        document.getElementById('selected-events').innerHTML = events.length ? events.map((event) => `<li><span>${event.time}</span>${event.title}<button type="button" data-delete-reminder="${event.id}">Delete</button></li>`).join('') : '<li>No reminders</li>';
     }
 
     async function loadCalendar(view = 'month') {
@@ -174,6 +143,16 @@
         });
     });
 
+    document.getElementById('new-reminder-btn').addEventListener('click', () => { calendarFormModal.classList.add('open'); document.getElementById('calendar-date').value = new Date().toISOString().slice(0, 10); });
+    document.getElementById('calendar-form-close').addEventListener('click', () => calendarFormModal.classList.remove('open'));
+    document.getElementById('schedule-form-close').addEventListener('click', () => scheduleFormModal.classList.remove('open'));
+    document.getElementById('new-schedule-btn').addEventListener('click', () => { scheduleFormModal.classList.add('open'); document.getElementById('schedule-start').value = new Date().toISOString().slice(0, 10); });
+    document.getElementById('calendar-form').addEventListener('submit', async (event) => { event.preventDefault(); await fetch('/api/reminders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: document.getElementById('calendar-title').value, description: document.getElementById('calendar-description').value, date: document.getElementById('calendar-date').value, time: document.getElementById('calendar-time').value }) }); calendarFormModal.classList.remove('open'); loadCalendar(); });
+    document.getElementById('selected-events').addEventListener('click', async (event) => { const id = event.target.dataset.deleteReminder; if (id) { await fetch(`/api/reminders/${id}`, { method: 'DELETE' }); loadCalendar(); } });
+    document.getElementById('schedule-form').addEventListener('submit', async (event) => { event.preventDefault(); await fetch('/api/weekly-schedules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: document.getElementById('schedule-title').value, description: document.getElementById('schedule-description').value, start_date: document.getElementById('schedule-start').value, end_date: document.getElementById('schedule-end').value || null }) }); scheduleFormModal.classList.remove('open'); loadSchedule(); });
+    async function loadSchedule() { const response = await fetch('/api/weekly-schedules'); const schedules = await response.json(); const active = schedules.find((schedule) => schedule.active); document.getElementById('schedule-status').textContent = active ? `${active.title} · starts ${active.start_date}` : 'No active weekly schedule.'; const button = document.getElementById('stop-schedule-btn'); button.disabled = !active; button.onclick = active ? async () => { await fetch(`/api/weekly-schedules/${active.id}/stop`, { method: 'POST' }); loadSchedule(); } : null; }
+
     loadCalendar('month');
+    loadSchedule();
 </script>
 {% endblock %}

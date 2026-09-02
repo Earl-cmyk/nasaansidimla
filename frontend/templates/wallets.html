@@ -35,6 +35,11 @@
         </article>
     </div>
 
+    <div class="wallet-panel card market-panel">
+        <div class="card-header"><span>Market watch</span><span>Delayed · refreshes every 5 minutes</span></div>
+        <div id="market-quotes" class="quote-grid"><p class="empty-state-text">Loading SPY and VOO quotes...</p></div>
+    </div>
+
     <!-- Spending by Category -->
     <div class="wallet-grid wallet-grid-main">
         <div class="wallet-panel card">
@@ -70,6 +75,24 @@
                 <p id="insight-text">No data yet. Log transactions to see insights.</p>
             </div>
             <p id="no-insight" class="empty-state-text">Log at least 5 transactions to get spending insights.</p>
+        </div>
+    </div>
+
+    <div class="wallet-grid">
+        <div class="wallet-panel card">
+            <div class="card-header"><span>Goals</span><button id="add-goal-btn" class="secondary-button" type="button">Add goal</button></div>
+            <form id="goal-form" class="inline-form"><input id="goal-title" placeholder="Goal" required><input id="goal-target" type="number" min="0" step="0.01" placeholder="Target" required><input id="goal-current" type="number" min="0" step="0.01" placeholder="Current"><button class="primary-button" type="submit">Save</button></form>
+            <ul id="goal-list" class="spending-list"><li class="empty-state-text">No goals yet.</li></ul>
+        </div>
+        <div class="wallet-panel card">
+            <div class="card-header"><span>Debt tracker</span><button id="add-debt-btn" class="secondary-button" type="button">Add debt</button></div>
+            <form id="debt-form" class="inline-form"><input id="debt-title" placeholder="Debt" required><input id="debt-balance" type="number" min="0" step="0.01" placeholder="Balance" required><input id="debt-rate" type="number" min="0" step="0.001" placeholder="APR %"><button class="primary-button" type="submit">Save</button></form>
+            <ul id="debt-list" class="spending-list"><li class="empty-state-text">No debts yet.</li></ul>
+        </div>
+        <div class="wallet-panel card">
+            <div class="card-header"><span>Paper broker</span><span>S&P 500 · SPY</span></div>
+            <form id="trade-form" class="inline-form"><select id="trade-side"><option value="buy">Buy</option><option value="sell">Sell</option></select><input id="trade-quantity" type="number" min="0.0001" step="0.0001" placeholder="Shares" required><input id="trade-price" type="number" min="0.01" step="0.01" placeholder="Price" required><button class="primary-button" type="submit">Record</button></form>
+            <ul id="trade-list" class="spending-list"><li class="empty-state-text">No paper trades yet.</li></ul>
         </div>
     </div>
 </section>
@@ -277,5 +300,23 @@
     });
 
     loadTransactions();
+
+    async function loadPlanning() {
+        const [goals, debts, trades] = await Promise.all([fetch('/api/goals').then((response) => response.json()), fetch('/api/debts').then((response) => response.json()), fetch('/api/paper-trades').then((response) => response.json())]);
+        document.getElementById('goal-list').innerHTML = goals.length ? goals.map((goal) => `<li><span>${goal.title}</span><strong>$${goal.current_amount.toFixed(2)} / $${goal.target_amount.toFixed(2)}</strong></li>`).join('') : '<li class="empty-state-text">No goals yet.</li>';
+        document.getElementById('debt-list').innerHTML = debts.length ? debts.map((debt) => `<li><span>${debt.title}</span><strong>$${debt.balance.toFixed(2)} · ${debt.interest_rate}%</strong></li>`).join('') : '<li class="empty-state-text">No debts yet.</li>';
+        document.getElementById('trade-list').innerHTML = trades.length ? trades.map((trade) => `<li><span>${trade.side.toUpperCase()} ${trade.quantity} ${trade.symbol}</span><strong>$${(trade.quantity * trade.price).toFixed(2)}</strong></li>`).join('') : '<li class="empty-state-text">No paper trades yet.</li>';
+    }
+    document.getElementById('goal-form').addEventListener('submit', async (event) => { event.preventDefault(); await fetch('/api/goals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: goalTitle.value, target_amount: goalTarget.value, current_amount: goalCurrent.value }) }); event.target.reset(); loadPlanning(); });
+    document.getElementById('debt-form').addEventListener('submit', async (event) => { event.preventDefault(); await fetch('/api/debts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: debtTitle.value, balance: debtBalance.value, interest_rate: debtRate.value }) }); event.target.reset(); loadPlanning(); });
+    document.getElementById('trade-form').addEventListener('submit', async (event) => { event.preventDefault(); await fetch('/api/paper-trades', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol: 'SPY', side: tradeSide.value, quantity: tradeQuantity.value, price: tradePrice.value }) }); event.target.reset(); loadPlanning(); });
+    const goalTitle = document.getElementById('goal-title'); const goalTarget = document.getElementById('goal-target'); const goalCurrent = document.getElementById('goal-current'); const debtTitle = document.getElementById('debt-title'); const debtBalance = document.getElementById('debt-balance'); const debtRate = document.getElementById('debt-rate'); const tradeSide = document.getElementById('trade-side'); const tradeQuantity = document.getElementById('trade-quantity'); const tradePrice = document.getElementById('trade-price');
+    loadPlanning();
+    async function loadMarketQuotes() {
+        const response = await fetch('/api/market/quotes?symbols=SPY,VOO');
+        const payload = await response.json();
+        document.getElementById('market-quotes').innerHTML = Object.values(payload.quotes).map((quote) => quote.status === 'ok' ? `<article class="quote-card"><strong>${quote.symbol}</strong><b>$${quote.price.toFixed(2)}</b><span>${quote.change >= 0 ? '+' : ''}${quote.change.toFixed(2)} (${quote.change_percent})</span></article>` : `<article class="quote-card"><strong>${quote.symbol}</strong><span>${quote.message}</span></article>`).join('');
+    }
+    loadMarketQuotes();
 </script>
 {% endblock %}

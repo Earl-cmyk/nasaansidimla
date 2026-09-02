@@ -1,6 +1,10 @@
 import json
 import os
 import re
+import shutil
+import subprocess
+import tempfile
+import time
 import urllib.parse
 import urllib.request
 import warnings
@@ -8,8 +12,11 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, after_this_request, jsonify, render_template, request, send_file
+import bleach
+import markdown
 import psycopg
+from bleach.css_sanitizer import CSSSanitizer
 
 from backend.rick_nlu import parse_message
 
@@ -32,6 +39,42 @@ if "?pgbouncer=true" in DATABASE_URL:
 if "connect_timeout=" not in DATABASE_URL:
     DATABASE_URL = DATABASE_URL + "?connect_timeout=5" if "?" not in DATABASE_URL else DATABASE_URL + "&connect_timeout=5"
 SCHEMA_PATH = BASE_DIR / "schema.sql"
+MARKET_CACHE = {"timestamp": 0, "quotes": {}}
+MARKET_CACHE_SECONDS = 300
+
+EDITOR_TAGS = set(bleach.sanitizer.ALLOWED_TAGS).union({
+    "h1", "h2", "h3", "h4", "p", "br", "hr", "pre", "code", "table", "thead", "tbody",
+    "tr", "th", "td", "u", "mark", "span", "del", "ins", "ol", "ul", "li", "blockquote",
+})
+EDITOR_ATTRIBUTES = {
+    "a": ["href", "title", "rel"],
+    "span": ["style"],
+    "mark": ["style"],
+    "table": ["class"],
+    "td": ["colspan", "rowspan"],
+    "th": ["colspan", "rowspan"],
+}
+EDITOR_CSS = CSSSanitizer(allowed_css_properties={
+    "background-color", "color", "font-family", "font-size", "font-weight", "text-align",
+})
+
+
+def render_note_content(source):
+    """Render editor Markdown while retaining only safe formatting and links."""
+    raw_content = source or ""
+    rendered = markdown.markdown(
+        raw_content,
+        extensions=["extra", "sane_lists", "nl2br"],
+        output_format="html5",
+    )
+    return bleach.clean(
+        rendered,
+        tags=EDITOR_TAGS,
+        attributes=EDITOR_ATTRIBUTES,
+        protocols={"http", "https", "mailto"},
+        css_sanitizer=EDITOR_CSS,
+        strip=True,
+    )
 
 
 def initialize_db():
@@ -97,9 +140,62 @@ def fetch_duckduckgo_results(query):
     return results
 
 
+def fetch_market_quotes(symbols):
+    api_key = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
+    if not api_key:
+        return {symbol: {"symbol": symbol, "status": "unconfigured", "message": "Add ALPHA_VANTAGE_API_KEY to enable delayed quotes."} for symbol in symbols}
+    now = time.monotonic()
+    if now - MARKET_CACHE["timestamp"] < MARKET_CACHE_SECONDS and all(symbol in MARKET_CACHE["quotes"] for symbol in symbols):
+        return {symbol: MARKET_CACHE["quotes"][symbol] for symbol in symbols}
+    quotes = {}
+    for symbol in symbols:
+        url = "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=%s&apikey=%s" % (urllib.parse.quote(symbol), urllib.parse.quote(api_key))
+        try:
+            with urllib.request.urlopen(url, timeout=8) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            quote = payload.get("Global Quote", {})
+            if not quote:
+                quotes[symbol] = {"symbol": symbol, "status": "unavailable", "message": payload.get("Note") or payload.get("Information") or "No quote returned."}
+            else:
+                quotes[symbol] = {"symbol": symbol, "status": "ok", "price": float(quote.get("05. price") or 0), "change": float(quote.get("09. change") or 0), "change_percent": quote.get("10. change percent", "")}
+        except Exception:
+            quotes[symbol] = {"symbol": symbol, "status": "unavailable", "message": "Quote provider unavailable."}
+    MARKET_CACHE["timestamp"] = now
+    MARKET_CACHE["quotes"].update(quotes)
+    return quotes
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/dashboard")
+def api_dashboard():
+    empty = {"notes": 0, "upcoming": [], "workouts": 0, "calories": 0, "bmi": None, "balance": 0, "projects": 0, "files": 0}
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM notes")
+                empty["notes"] = cursor.fetchone()[0]
+                cursor.execute("SELECT title, date, time FROM reminders WHERE date >= CURRENT_DATE AND done = FALSE ORDER BY date, time LIMIT 5")
+                empty["upcoming"] = [{"title": row[0], "date": str(row[1]), "time": str(row[2])} for row in cursor.fetchall()]
+                cursor.execute("SELECT COUNT(*) FROM workouts WHERE date >= CURRENT_DATE - INTERVAL '30 days'")
+                empty["workouts"] = cursor.fetchone()[0]
+                cursor.execute("SELECT COALESCE(SUM(calories), 0) FROM meals WHERE date = CURRENT_DATE")
+                empty["calories"] = cursor.fetchone()[0]
+                cursor.execute("SELECT bmi, measured_on FROM bmi_measurements ORDER BY measured_on DESC, id DESC LIMIT 1")
+                row = cursor.fetchone()
+                empty["bmi"] = {"value": float(row[0]), "date": str(row[1])} if row else None
+                cursor.execute("SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) FROM transactions")
+                empty["balance"] = float(cursor.fetchone()[0])
+                cursor.execute("SELECT COUNT(*) FROM projects")
+                empty["projects"] = cursor.fetchone()[0]
+                cursor.execute("SELECT COUNT(*) FROM files")
+                empty["files"] = cursor.fetchone()[0]
+        return jsonify(empty)
+    except Exception:
+        return jsonify(empty)
 
 
 @app.route("/search")
@@ -231,6 +327,80 @@ def api_get_reminders():
         return jsonify([])
 
 
+@app.route("/api/reminders", methods=["POST"])
+def api_create_reminder():
+    data = request.get_json() or {}
+    title = (data.get("title") or "New reminder").strip()
+    reminder_date = data.get("date") or datetime.now(timezone.utc).date().isoformat()
+    reminder_time = data.get("time") or "09:00"
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO reminders (title, description, date, time) VALUES (%s, %s, %s, %s) RETURNING id",
+                    (title, data.get("description") or "", reminder_date, reminder_time),
+                )
+                reminder_id = cursor.fetchone()[0]
+        return jsonify({"status": "ok", "id": reminder_id}), 201
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
+
+
+@app.route("/api/reminders/<int:reminder_id>", methods=["PUT", "PATCH", "DELETE"])
+def api_manage_reminder(reminder_id):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                if request.method == "DELETE":
+                    cursor.execute("DELETE FROM reminders WHERE id = %s", (reminder_id,))
+                else:
+                    data = request.get_json() or {}
+                    cursor.execute(
+                        """UPDATE reminders SET title = %s, description = %s, date = %s, time = %s, done = %s
+                           WHERE id = %s""",
+                        ((data.get("title") or "New reminder").strip(), data.get("description") or "", data.get("date"), data.get("time") or "09:00", bool(data.get("done", False)), reminder_id),
+                    )
+        return jsonify({"status": "ok"})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
+
+
+@app.route("/api/weekly-schedules", methods=["GET", "POST"])
+def api_weekly_schedules():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO weekly_schedules (title, description, start_date, end_date) VALUES (%s, %s, %s, %s) RETURNING id",
+                        ((data.get("title") or "Weekly schedule").strip(), data.get("description") or "", data.get("start_date") or datetime.now(timezone.utc).date().isoformat(), data.get("end_date") or None),
+                    )
+                    schedule_id = cursor.fetchone()[0]
+            return jsonify({"status": "ok", "id": schedule_id}), 201
+        except Exception as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT id, title, description, start_date, end_date, active FROM weekly_schedules ORDER BY created_at DESC")
+                rows = cursor.fetchall()
+        return jsonify([{"id": row[0], "title": row[1], "description": row[2], "start_date": str(row[3]), "end_date": str(row[4]) if row[4] else None, "active": row[5]} for row in rows])
+    except Exception:
+        return jsonify([])
+
+
+@app.route("/api/weekly-schedules/<int:schedule_id>/stop", methods=["POST"])
+def api_stop_weekly_schedule(schedule_id):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("UPDATE weekly_schedules SET active = FALSE, end_date = COALESCE(end_date, CURRENT_DATE) WHERE id = %s", (schedule_id,))
+        return jsonify({"status": "ok"})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
+
+
 @app.route("/api/calendar", methods=["GET"])
 def api_get_calendar():
     view = request.args.get("view", "month").lower()
@@ -328,11 +498,19 @@ def api_get_notes():
     with get_db() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT id, title, content, tag, created_at FROM notes ORDER BY created_at DESC"
+                "SELECT id, title, content, tag, created_at, updated_at FROM notes ORDER BY updated_at DESC"
             )
             notes = cursor.fetchall()
     return jsonify([
-        {"id": row[0], "title": row[1], "content": row[2], "tag": row[3], "created_at": row[4].isoformat() if hasattr(row[4], "isoformat") else row[4]}
+        {
+            "id": row[0],
+            "title": row[1],
+            "content": row[2] or "",
+            "html": render_note_content(row[2]),
+            "tag": row[3],
+            "created_at": row[4].isoformat() if hasattr(row[4], "isoformat") else row[4],
+            "updated_at": row[5].isoformat() if hasattr(row[5], "isoformat") else row[5],
+        }
         for row in notes
     ])
 
@@ -341,8 +519,8 @@ def api_get_notes():
 def api_create_note():
     data = request.get_json() or {}
     title = (data.get("title") or "Untitled note").strip()
-    content = data.get("content") or ""
-    tag = data.get("tag") or "general"
+    content = data.get("content") if data.get("content") is not None else ""
+    tag = (data.get("tag") or "general").strip()
     with get_db() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -350,6 +528,57 @@ def api_create_note():
                 (title, content, tag),
             )
     return jsonify({"status": "ok"})
+
+
+@app.route("/api/notes/<int:note_id>", methods=["PUT", "PATCH"])
+def api_update_note(note_id):
+    data = request.get_json() or {}
+    title = (data.get("title") or "Untitled note").strip()
+    content = data.get("content") if data.get("content") is not None else ""
+    tag = (data.get("tag") or "general").strip()
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """UPDATE notes
+                       SET title = %s, content = %s, tag = %s, updated_at = NOW()
+                       WHERE id = %s
+                       RETURNING id, title, content, tag, created_at, updated_at""",
+                    (title, content, tag, note_id),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    return jsonify({"status": "error", "message": "Note not found"}), 404
+        return jsonify({
+            "status": "ok", "id": row[0], "title": row[1], "content": row[2],
+            "html": render_note_content(row[2]), "tag": row[3],
+        })
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.route("/api/notes/search", methods=["GET"])
+def api_search_notes():
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify([])
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """SELECT id, title, content, tag, updated_at
+                       FROM notes
+                       WHERE title ILIKE %s OR tag ILIKE %s OR content ILIKE %s
+                       ORDER BY updated_at DESC LIMIT 10""",
+                    (f"%{query}%", f"%{query}%", f"%{query}%"),
+                )
+                rows = cursor.fetchall()
+        return jsonify([
+            {"id": row[0], "title": row[1], "content": row[2] or "", "html": render_note_content(row[2]), "tag": row[3]}
+            for row in rows
+        ])
+    except Exception:
+        return jsonify([])
 
 
 @app.route("/api/notes/<int:note_id>", methods=["DELETE"])
@@ -393,6 +622,130 @@ def api_create_transaction():
                 (title, type_name, category, amount, transaction_date),
             )
     return jsonify({"status": "ok"})
+
+
+@app.route("/api/goals", methods=["GET", "POST"])
+def api_goals():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("INSERT INTO financial_goals (title, target_amount, current_amount, due_date) VALUES (%s, %s, %s, %s) RETURNING id", ((data.get("title") or "Goal").strip(), float(data.get("target_amount") or 0), float(data.get("current_amount") or 0), data.get("due_date") or None))
+                    goal_id = cursor.fetchone()[0]
+            return jsonify({"status": "ok", "id": goal_id}), 201
+        except Exception as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT id, title, target_amount, current_amount, due_date FROM financial_goals ORDER BY created_at DESC")
+                rows = cursor.fetchall()
+        return jsonify([{"id": row[0], "title": row[1], "target_amount": float(row[2]), "current_amount": float(row[3]), "due_date": str(row[4]) if row[4] else None} for row in rows])
+    except Exception:
+        return jsonify([])
+
+
+@app.route("/api/debts", methods=["GET", "POST"])
+def api_debts():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("INSERT INTO debts (title, balance, interest_rate, minimum_payment) VALUES (%s, %s, %s, %s) RETURNING id", ((data.get("title") or "Debt").strip(), float(data.get("balance") or 0), float(data.get("interest_rate") or 0), float(data.get("minimum_payment") or 0)))
+                    debt_id = cursor.fetchone()[0]
+            return jsonify({"status": "ok", "id": debt_id}), 201
+        except Exception as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT id, title, balance, interest_rate, minimum_payment FROM debts ORDER BY created_at DESC")
+                rows = cursor.fetchall()
+        return jsonify([{"id": row[0], "title": row[1], "balance": float(row[2]), "interest_rate": float(row[3]), "minimum_payment": float(row[4])} for row in rows])
+    except Exception:
+        return jsonify([])
+
+
+@app.route("/api/paper-trades", methods=["GET", "POST"])
+def api_paper_trades():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        symbol = (data.get("symbol") or "SPY").strip().upper()
+        side = (data.get("side") or "buy").strip().lower()
+        quantity = float(data.get("quantity") or 0)
+        price = float(data.get("price") or 0)
+        if side not in {"buy", "sell"} or quantity <= 0 or price <= 0:
+            return jsonify({"status": "error", "message": "Use a positive quantity and price."}), 400
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("INSERT INTO paper_trades (symbol, side, quantity, price) VALUES (%s, %s, %s, %s) RETURNING id", (symbol, side, quantity, price))
+                    trade_id = cursor.fetchone()[0]
+            return jsonify({"status": "ok", "id": trade_id}), 201
+        except Exception as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT id, symbol, side, quantity, price, traded_at FROM paper_trades ORDER BY traded_at DESC LIMIT 50")
+                rows = cursor.fetchall()
+        return jsonify([{"id": row[0], "symbol": row[1], "side": row[2], "quantity": float(row[3]), "price": float(row[4]), "traded_at": row[5].isoformat()} for row in rows])
+    except Exception:
+        return jsonify([])
+
+
+@app.route("/api/market/quotes")
+def api_market_quotes():
+    requested = [item.strip().upper() for item in request.args.get("symbols", "SPY,VOO").split(",")]
+    symbols = [symbol for symbol in requested if re.fullmatch(r"[A-Z]{1,5}", symbol)][:10] or ["SPY", "VOO"]
+    return jsonify({"quotes": fetch_market_quotes(symbols), "cached_for_seconds": MARKET_CACHE_SECONDS})
+
+
+@app.route("/api/converter/youtube", methods=["POST"])
+def api_convert_youtube():
+    data = request.get_json() or {}
+    url = (data.get("url") or "").strip()
+    output_format = (data.get("format") or "mp3").strip().lower()
+    quality = str(data.get("quality") or ("192" if output_format == "mp3" else "720"))
+    allowed_hosts = {"youtube.com", "www.youtube.com", "youtu.be", "m.youtube.com"}
+    parsed_url = urllib.parse.urlparse(url)
+    if parsed_url.scheme not in {"http", "https"} or parsed_url.hostname not in allowed_hosts:
+        return jsonify({"status": "error", "message": "Only YouTube URLs are supported."}), 400
+    if output_format not in {"mp3", "mp4"} or (output_format == "mp3" and quality not in {"128", "192", "320"}) or (output_format == "mp4" and quality not in {"720", "1080"}):
+        return jsonify({"status": "error", "message": "Unsupported format or quality."}), 400
+    try:
+        import yt_dlp
+        with tempfile.TemporaryDirectory(prefix="earl-convert-") as temp_dir:
+            inspect_options = {"quiet": True, "noplaylist": True, "skip_download": True}
+            with yt_dlp.YoutubeDL(inspect_options) as downloader:
+                info = downloader.extract_info(url, download=False)
+            if (info.get("duration") or 0) > 15 * 60:
+                return jsonify({"status": "error", "message": "Videos must be 15 minutes or shorter."}), 413
+            if (info.get("filesize") or info.get("filesize_approx") or 0) > 250 * 1024 * 1024:
+                return jsonify({"status": "error", "message": "Source files must be 250 MB or smaller."}), 413
+            output_template = os.path.join(temp_dir, "converted.%(ext)s")
+            options = {"quiet": True, "noplaylist": True, "outtmpl": output_template, "max_filesize": 250 * 1024 * 1024}
+            if output_format == "mp3":
+                options.update({"format": "bestaudio/best", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": quality}]})
+            else:
+                options["format"] = f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best"
+            with yt_dlp.YoutubeDL(options) as downloader:
+                downloader.download([url])
+            candidates = [path for path in Path(temp_dir).glob("converted.*") if path.is_file()]
+            if not candidates or candidates[0].stat().st_size > 250 * 1024 * 1024:
+                return jsonify({"status": "error", "message": "Converted output exceeded 250 MB."}), 413
+            output_path = candidates[0]
+            from io import BytesIO
+            output_bytes = output_path.read_bytes()
+            @after_this_request
+            def cleanup(response):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                return response
+            return send_file(BytesIO(output_bytes), as_attachment=True, download_name=f"{Path(info.get('title') or 'download').stem}.{output_format}")
+    except Exception as exc:
+        return jsonify({"status": "error", "message": f"Conversion unavailable: {exc}"}), 503
 
 
 @app.route("/api/workouts", methods=["GET"])
@@ -446,16 +799,71 @@ def api_get_muscle_progress():
     return jsonify({row[0]: float(row[1]) for row in rows})
 
 
+@app.route("/api/exercises", methods=["GET"])
+def api_get_exercises():
+    muscle_group = request.args.get("muscle_group", "").strip().lower()
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                if muscle_group:
+                    cursor.execute(
+                        "SELECT id, muscle_group, name, instructions FROM exercises WHERE muscle_group = %s ORDER BY name",
+                        (muscle_group,),
+                    )
+                else:
+                    cursor.execute("SELECT id, muscle_group, name, instructions FROM exercises ORDER BY muscle_group, name")
+                rows = cursor.fetchall()
+        return jsonify([{"id": row[0], "muscle_group": row[1], "name": row[2], "instructions": row[3] or ""} for row in rows])
+    except Exception:
+        return jsonify([])
+
+
+@app.route("/api/bmi", methods=["GET", "POST"])
+def api_bmi():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        weight = float(data.get("weight") or 0)
+        height = float(data.get("height") or 0)
+        units = (data.get("units") or "metric").strip().lower()
+        if weight <= 0 or height <= 0 or units not in {"metric", "imperial"}:
+            return jsonify({"status": "error", "message": "Weight and height must be positive."}), 400
+        bmi = (weight / ((height / 100) ** 2)) if units == "metric" else (703 * weight / (height ** 2))
+        measured_on = data.get("measured_on") or datetime.now(timezone.utc).date().isoformat()
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO bmi_measurements (weight, height, units, bmi, measured_on) VALUES (%s, %s, %s, %s, %s) RETURNING id, measured_on",
+                        (weight, height, units, round(bmi, 2), measured_on),
+                    )
+                    row = cursor.fetchone()
+            return jsonify({"status": "ok", "id": row[0], "bmi": round(bmi, 2), "measured_on": str(row[1])})
+        except Exception as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 500
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT id, weight, height, units, bmi, measured_on FROM bmi_measurements ORDER BY measured_on DESC, id DESC LIMIT 50")
+                rows = cursor.fetchall()
+        return jsonify([
+            {"id": row[0], "weight": float(row[1]), "height": float(row[2]), "units": row[3], "bmi": float(row[4]), "measured_on": str(row[5])}
+            for row in rows
+        ])
+    except Exception:
+        return jsonify([])
+
+
 @app.route("/api/projects", methods=["GET"])
 def api_get_projects():
     with get_db() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT id, type, title, description, metadata, created_at FROM projects ORDER BY created_at DESC"
+                "SELECT id, type, title, description, metadata, content, mode, created_at FROM projects ORDER BY created_at DESC"
             )
             projects = cursor.fetchall()
     return jsonify([
-        {"id": row[0], "type": row[1], "title": row[2], "description": row[3], "metadata": row[4], "created_at": row[5].isoformat() if hasattr(row[5], "isoformat") else row[5]}
+        {"id": row[0], "type": row[1], "title": row[2], "description": row[3], "metadata": row[4], "content": row[5] or row[3] or "", "mode": row[6] or "document", "created_at": row[7].isoformat() if hasattr(row[7], "isoformat") else row[7]}
         for row in projects
     ])
 
@@ -466,10 +874,28 @@ def api_create_project():
     with get_db() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO projects (type, title, description, metadata) VALUES (%s, %s, %s, %s)",
-                (data.get("type"), data.get("title"), data.get("description"), data.get("metadata")),
+                "INSERT INTO projects (type, title, description, metadata, content, mode) VALUES (%s, %s, %s, %s, %s, %s)",
+                (data.get("type") or data.get("mode") or "document", data.get("title") or "Untitled project", data.get("description") or "", data.get("metadata") or {}, data.get("content") or data.get("description") or "", data.get("mode") or "document"),
             )
     return jsonify({"status": "ok"})
+
+
+@app.route("/api/projects/<int:project_id>", methods=["PUT", "PATCH"])
+def api_update_project(project_id):
+    data = request.get_json() or {}
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE projects SET title = %s, content = %s, mode = %s, description = %s, updated_at = NOW() WHERE id = %s RETURNING id",
+                    ((data.get("title") or "Untitled project").strip(), data.get("content") or "", data.get("mode") or "document", data.get("description") or "", project_id),
+                )
+                row = cursor.fetchone()
+        if not row:
+            return jsonify({"status": "error", "message": "Project not found"}), 404
+        return jsonify({"status": "ok", "id": row[0]})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
 
 
 @app.route("/api/meals", methods=["GET"])
@@ -551,6 +977,21 @@ def api_create_file():
                 (filename, file_type, description),
             )
     return jsonify({"status": "ok"})
+
+
+@app.route("/api/files/<int:file_id>/download")
+def api_download_file(file_id):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT filename, description FROM files WHERE id = %s", (file_id,))
+                row = cursor.fetchone()
+        if not row:
+            return jsonify({"status": "error", "message": "File not found"}), 404
+        from io import BytesIO
+        return send_file(BytesIO((row[1] or "").encode("utf-8")), as_attachment=True, download_name=row[0], mimetype="application/octet-stream")
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 
 if __name__ == "__main__":

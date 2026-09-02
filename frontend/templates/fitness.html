@@ -10,6 +10,7 @@
             <h1>Fitness</h1>
         </div>
         <button id="log-workout-btn" class="primary-button" type="button">Log workout</button>
+        <button id="bmi-btn" class="secondary-button" type="button">BMI calculator</button>
     </div>
 
     <div class="fitness-grid">
@@ -57,6 +58,10 @@
             </div>
         </aside>
     </div>
+    <section class="card bmi-panel">
+        <div class="card-header"><span>BMI history</span><span id="latest-bmi">No measurements yet</span></div>
+        <canvas id="bmi-chart" height="150" aria-label="BMI history chart"></canvas>
+    </section>
 </section>
 
 <!-- Log Workout Modal -->
@@ -98,6 +103,28 @@
     </div>
 </div>
 
+<div id="exercise-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h2 id="exercise-modal-title">Exercises</h2><button id="exercise-close" class="ghost-button" type="button">✕</button></div>
+        <div class="modal-body"><div id="exercise-list" class="exercise-list"></div><button id="exercise-log-btn" class="primary-button" type="button">Log selected exercise</button></div>
+    </div>
+</div>
+
+<div id="bmi-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h2>BMI calculator</h2><button id="bmi-close" class="ghost-button" type="button">✕</button></div>
+        <div class="modal-body">
+            <form id="bmi-form">
+                <label><span>Units</span><select id="bmi-units"><option value="metric">Metric (kg / cm)</option><option value="imperial">Imperial (lb / in)</option></select></label>
+                <label><span>Weight</span><input id="bmi-weight" type="number" min="1" step="0.1" required></label>
+                <label><span>Height</span><input id="bmi-height" type="number" min="1" step="0.1" required></label>
+                <button class="primary-button" type="submit">Calculate and track</button>
+            </form>
+            <p id="bmi-result" class="bmi-result"></p>
+        </div>
+    </div>
+</div>
+
 <script>
     const workouts = {
         chest: 0,
@@ -116,6 +143,10 @@
     const workoutClose = document.getElementById('workout-close');
     const workoutForm = document.getElementById('workout-form');
     const calorieForm = document.getElementById('calorie-form');
+    const exerciseModal = document.getElementById('exercise-modal');
+    const exerciseList = document.getElementById('exercise-list');
+    let selectedMuscle = '';
+    let selectedExercise = '';
 
     logWorkoutBtn.addEventListener('click', () => {
         workoutModal.classList.add('open');
@@ -130,6 +161,26 @@
             workoutModal.classList.remove('open');
         }
     });
+
+    document.querySelectorAll('.muscle').forEach((muscleElement) => {
+        muscleElement.addEventListener('click', async () => {
+            selectedMuscle = muscleElement.dataset.muscle;
+            document.getElementById('exercise-modal-title').textContent = `${selectedMuscle} exercises`;
+            const response = await fetch(`/api/exercises?muscle_group=${encodeURIComponent(selectedMuscle)}`);
+            const exercises = await response.json();
+            exerciseList.innerHTML = exercises.length ? exercises.map((exercise, index) => `<label class="exercise-option"><input type="radio" name="exercise" value="${exercise.name}" ${index === 0 ? 'checked' : ''}><strong>${exercise.name}</strong><span>${exercise.instructions}</span></label>`).join('') : '<p>No exercises available.</p>';
+            selectedExercise = exercises[0]?.name || '';
+            exerciseModal.classList.add('open');
+        });
+    });
+    exerciseList.addEventListener('change', (event) => { selectedExercise = event.target.value; });
+    document.getElementById('exercise-log-btn').addEventListener('click', () => {
+        workoutForm[0].value = selectedMuscle;
+        workoutForm[1].value = selectedExercise;
+        exerciseModal.classList.remove('open');
+        workoutModal.classList.add('open');
+    });
+    document.getElementById('exercise-close').addEventListener('click', () => exerciseModal.classList.remove('open'));
 
     async function loadWorkoutProgress() {
         const response = await fetch('/api/muscle-progress');
@@ -223,8 +274,40 @@
         `;
     }
 
+    const bmiModal = document.getElementById('bmi-modal');
+    document.getElementById('bmi-btn').addEventListener('click', () => bmiModal.classList.add('open'));
+    document.getElementById('bmi-close').addEventListener('click', () => bmiModal.classList.remove('open'));
+    document.getElementById('bmi-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = { units: document.getElementById('bmi-units').value, weight: Number(document.getElementById('bmi-weight').value), height: Number(document.getElementById('bmi-height').value) };
+        const response = await fetch('/api/bmi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (response.ok) {
+            const result = await response.json();
+            document.getElementById('bmi-result').textContent = `Your BMI is ${result.bmi}.`;
+            await loadBmiHistory();
+        }
+    });
+
+    async function loadBmiHistory() {
+        const response = await fetch('/api/bmi');
+        const measurements = await response.json();
+        const latest = measurements[0];
+        document.getElementById('latest-bmi').textContent = latest ? `Latest: ${latest.bmi}` : 'No measurements yet';
+        const canvas = document.getElementById('bmi-chart');
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        if (!measurements.length) return;
+        const values = measurements.slice().reverse().map((measurement) => measurement.bmi);
+        const max = Math.max(...values, 25);
+        const min = Math.min(...values, 15);
+        context.strokeStyle = '#7cc7ff'; context.lineWidth = 3; context.beginPath();
+        values.forEach((value, index) => { const x = values.length === 1 ? canvas.width / 2 : (index / (values.length - 1)) * canvas.width; const y = canvas.height - ((value - min) / Math.max(max - min, 1)) * (canvas.height - 20) - 10; index ? context.lineTo(x, y) : context.moveTo(x, y); });
+        context.stroke();
+    }
+
     loadWorkoutProgress();
     loadCalorieData();
+    loadBmiHistory();
     updateCalorieDisplay();
 </script>
 {% endblock %}

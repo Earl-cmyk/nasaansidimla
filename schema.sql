@@ -19,6 +19,16 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS weekly_schedules (
+    id BIGSERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    start_date DATE NOT NULL,
+    end_date DATE,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Notes table
 CREATE TABLE IF NOT EXISTS notes (
     id BIGSERIAL PRIMARY KEY,
@@ -70,6 +80,9 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS content TEXT NOT NULL DEFAULT '';
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'document';
+
 -- Files table (Works archive)
 CREATE TABLE IF NOT EXISTS files (
     id BIGSERIAL PRIMARY KEY,
@@ -88,3 +101,60 @@ CREATE TABLE IF NOT EXISTS meals (
     date DATE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS bmi_measurements (
+    id BIGSERIAL PRIMARY KEY,
+    weight NUMERIC(7,2) NOT NULL,
+    height NUMERIC(7,2) NOT NULL,
+    units TEXT NOT NULL DEFAULT 'metric',
+    bmi NUMERIC(5,2) NOT NULL,
+    measured_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS exercises (
+    id BIGSERIAL PRIMARY KEY,
+    muscle_group TEXT NOT NULL,
+    name TEXT NOT NULL,
+    instructions TEXT,
+    UNIQUE (muscle_group, name)
+);
+
+CREATE TABLE IF NOT EXISTS financial_goals (
+    id BIGSERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    target_amount NUMERIC(12,2) NOT NULL,
+    current_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    due_date DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS debts (
+    id BIGSERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    balance NUMERIC(12,2) NOT NULL,
+    interest_rate NUMERIC(6,3) NOT NULL DEFAULT 0,
+    minimum_payment NUMERIC(12,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS paper_trades (
+    id BIGSERIAL PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    side TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
+    quantity NUMERIC(12,4) NOT NULL CHECK (quantity > 0),
+    price NUMERIC(12,4) NOT NULL CHECK (price > 0),
+    traded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO exercises (muscle_group, name, instructions) VALUES
+    ('chest', 'Push-up', 'Keep your body straight and lower your chest with control.'),
+    ('chest', 'Bench press', 'Press the bar from chest level while keeping your feet grounded.'),
+    ('arms', 'Biceps curl', 'Curl the weight without swinging your elbows forward.'),
+    ('arms', 'Triceps dip', 'Lower your body with control and press through your palms.'),
+    ('shoulders', 'Overhead press', 'Press weights overhead while keeping your ribs stacked.'),
+    ('core', 'Plank', 'Brace your core and keep a straight line from shoulders to heels.'),
+    ('legs', 'Bodyweight squat', 'Sit your hips back, keep your knees tracking over your toes.'),
+    ('legs', 'Reverse lunge', 'Step back and lower both knees with control.'),
+    ('back', 'Bent-over row', 'Pull toward your ribs while maintaining a neutral spine.')
+ON CONFLICT (muscle_group, name) DO NOTHING;

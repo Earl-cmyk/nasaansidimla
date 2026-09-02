@@ -9,7 +9,15 @@
             <h1>Works</h1>
         </div>
         <button id="upload-btn" class="primary-button" type="button">Upload</button>
+        <button id="converter-btn" class="secondary-button" type="button">YouTube converter</button>
     </header>
+
+    <div class="view-picker" aria-label="Works filter">
+        <button class="chip active" data-filter="all" type="button">All</button>
+        <button class="chip" data-filter="image" type="button">Images</button>
+        <button class="chip" data-filter="video" type="button">Videos</button>
+        <button class="chip" data-filter="document" type="button">Documents</button>
+    </div>
 
     <div class="works-layout">
         <div id="images-section" class="card work-view">
@@ -71,12 +79,15 @@
     </div>
 </div>
 
+<div id="converter-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2>YouTube converter</h2><button id="converter-close" class="ghost-button" type="button">✕</button></div><div class="modal-body"><form id="converter-form"><label><span>YouTube URL</span><input id="converter-url" type="url" placeholder="https://www.youtube.com/watch?v=..." required></label><label><span>Format</span><select id="converter-format"><option value="mp3">MP3</option><option value="mp4">MP4</option></select></label><label><span>Quality</span><select id="converter-quality"><option value="128">128 kbps</option><option value="192" selected>192 kbps</option><option value="320">320 kbps</option></select></label><button class="primary-button" type="submit">Convert and download</button><p id="converter-status" class="empty-state-text">Only download content you own or have permission to use. Maximum 15 minutes and 250 MB.</p></form></div></div></div>
+
 <script>
     const uploadBtn = document.getElementById('upload-btn');
     const uploadModal = document.getElementById('upload-modal');
     const uploadClose = document.getElementById('upload-close');
     const uploadForm = document.getElementById('upload-form');
     const dropZone = document.getElementById('drop-zone');
+    let loadedFiles = [];
 
     const files = {
         images: [],
@@ -184,7 +195,8 @@
 
     async function loadFilesFromBackend() {
         const response = await fetch('/api/files');
-        const files = await response.json();
+        loadedFiles = await response.json();
+        const files = loadedFiles;
 
         files.forEach(file => {
             if (file.file_type === 'image') {
@@ -199,5 +211,22 @@
 
     // Load existing files on page load
     loadFilesFromBackend();
+    const converterModal = document.getElementById('converter-modal');
+    document.getElementById('converter-btn').addEventListener('click', () => converterModal.classList.add('open'));
+    document.getElementById('converter-close').addEventListener('click', () => converterModal.classList.remove('open'));
+    document.getElementById('converter-format').addEventListener('change', (event) => { document.getElementById('converter-quality').innerHTML = event.target.value === 'mp3' ? '<option value="128">128 kbps</option><option value="192" selected>192 kbps</option><option value="320">320 kbps</option>' : '<option value="720">720p</option><option value="1080">1080p</option>'; });
+    document.getElementById('converter-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const status = document.getElementById('converter-status');
+        status.textContent = 'Converting...';
+        const response = await fetch('/api/converter/youtube', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: document.getElementById('converter-url').value, format: document.getElementById('converter-format').value, quality: document.getElementById('converter-quality').value }) });
+        if (!response.ok) { const error = await response.json().catch(() => ({})); status.textContent = error.message || 'Conversion failed.'; return; }
+        const blob = await response.blob(); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replaceAll('"', '') || 'converted-media'; link.click(); URL.revokeObjectURL(link.href); status.textContent = 'Download ready.';
+    });
+    document.querySelectorAll('[data-filter]').forEach((button) => button.addEventListener('click', () => {
+        document.querySelectorAll('[data-filter]').forEach((item) => item.classList.toggle('active', item === button));
+        const filter = button.dataset.filter;
+        document.querySelectorAll('.work-view').forEach((section) => { section.style.display = filter === 'all' || section.id.startsWith(`${filter}s`) || (filter === 'document' && section.id === 'files-section') ? '' : 'none'; });
+    }));
 </script>
 {% endblock %}

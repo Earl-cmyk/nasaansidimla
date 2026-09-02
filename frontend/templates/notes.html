@@ -33,7 +33,27 @@
                 </label>
                 <label>
                     <span>Content</span>
-                    <textarea id="note-content" rows="8" placeholder="Write your thought..."></textarea>
+                    <div class="editor-toolbar" role="toolbar" aria-label="Note formatting">
+                        <button type="button" data-mark="**" title="Bold"><strong>B</strong></button>
+                        <button type="button" data-mark="*" title="Italic"><em>I</em></button>
+                        <button type="button" data-mark="<u>" data-close="</u>" title="Underline"><u>U</u></button>
+                        <button type="button" data-mark="==" title="Highlight">Highlight</button>
+                        <button type="button" data-prefix="# " title="Heading">H</button>
+                        <button type="button" data-prefix="- " title="Bullet list">•</button>
+                        <button type="button" data-prefix="1. " title="Numbered list">1.</button>
+                        <button type="button" id="note-link-btn" title="Insert hyperlink">Link</button>
+                        <button type="button" id="note-table-btn" title="Insert table">Table</button>
+                        <select id="note-font-size" title="Font size">
+                            <option value="">Size</option><option value="small">Small</option><option value="large">Large</option>
+                        </select>
+                        <select id="note-font-family" title="Font family">
+                            <option value="">Font</option><option value="serif">Serif</option><option value="sans-serif">Sans</option><option value="monospace">Mono</option>
+                        </select>
+                        <button type="button" id="note-emoji-btn" title="Insert emoji">😀</button>
+                    </div>
+                    <textarea id="note-content" rows="12" placeholder="Write your thought... Tabs, spaces, and blank lines are preserved."></textarea>
+                    <div class="editor-preview-label">Preview</div>
+                    <div id="note-preview" class="note-editor-preview" aria-live="polite"></div>
                 </label>
                 <label>
                     <span>Tag</span>
@@ -80,11 +100,14 @@
     const detailCloseBtn = document.getElementById('detail-close-btn');
     const notesFeed = document.getElementById('notes-feed');
     let currentNoteId = null;
+    let currentNote = null;
 
     // Open add note modal
     addNoteBtn.addEventListener('click', () => {
         currentNoteId = null;
+        currentNote = null;
         noteForm.reset();
+        notePreview.innerHTML = '';
         noteDeleteBtn.style.display = 'none';
         document.getElementById('note-modal-title').textContent = 'New note';
         noteModal.classList.add('open');
@@ -122,6 +145,7 @@
             noteCard.dataset.id = note.id;
             noteCard.dataset.title = note.title;
             noteCard.dataset.content = note.content;
+            noteCard.dataset.html = note.html || '';
             noteCard.dataset.tag = note.tag || 'Note';
 
             noteCard.innerHTML = `
@@ -130,19 +154,15 @@
                     <span class="note-date">${new Date(note.created_at).toLocaleDateString()}</span>
                 </div>
                 <h3>${note.title}</h3>
-                <p>${(note.content || '').substring(0, 100)}${(note.content || '').length > 100 ? '...' : ''}</p>
+                <p class="note-excerpt">${(note.content || '').substring(0, 140)}${(note.content || '').length > 140 ? '...' : ''}</p>
             `;
 
             noteCard.addEventListener('click', () => {
                 currentNoteId = noteCard.dataset.id;
+                currentNote = note;
                 detailModal.classList.add('open');
                 document.getElementById('detail-title').textContent = note.title;
-                document.getElementById('detail-content').innerHTML = `
-                    <div class="note-detail">
-                        <span class="detail-tag">${note.tag || 'Note'}</span>
-                        <p>${note.content || ''}</p>
-                    </div>
-                `;
+                document.getElementById('detail-content').innerHTML = `<div class="note-detail"><span class="detail-tag">${note.tag || 'Note'}</span><div class="rich-content">${note.html || ''}</div></div>`;
             });
 
             notesFeed.appendChild(noteCard);
@@ -152,7 +172,7 @@
     noteForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const title = noteTitle.value.trim();
-        const content = noteContent.value.trim();
+        const content = noteContent.value;
         const tag = noteTag.value.trim() || 'Note';
 
         if (!title) {
@@ -160,8 +180,8 @@
             return;
         }
 
-        const response = await fetch('/api/notes', {
-            method: 'POST',
+        const response = await fetch(currentNoteId ? `/api/notes/${currentNoteId}` : '/api/notes', {
+            method: currentNoteId ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, content, tag }),
         });
@@ -180,6 +200,7 @@
 
         noteTitle.value = noteToEdit.dataset.title;
         noteContent.value = noteToEdit.dataset.content;
+        notePreview.innerHTML = noteToEdit.dataset.html || '';
         noteTag.value = noteToEdit.dataset.tag || 'Note';
         noteDeleteBtn.style.display = 'inline-block';
         noteDeleteBtn.onclick = async () => {
@@ -200,5 +221,51 @@
     });
 
     loadNotes();
+
+    const notePreview = document.getElementById('note-preview');
+    function refreshNotePreview() {
+        notePreview.textContent = noteContent.value;
+    }
+    noteContent.addEventListener('input', refreshNotePreview);
+
+    function wrapSelection(open, close = open) {
+        const start = noteContent.selectionStart;
+        const end = noteContent.selectionEnd;
+        const selected = noteContent.value.slice(start, end) || 'text';
+        noteContent.setRangeText(`${open}${selected}${close}`, start, end, 'end');
+        refreshNotePreview();
+        noteContent.focus();
+    }
+
+    document.querySelectorAll('[data-mark]').forEach((button) => {
+        button.addEventListener('click', () => wrapSelection(button.dataset.mark, button.dataset.close || button.dataset.mark));
+    });
+    document.querySelectorAll('[data-prefix]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const start = noteContent.selectionStart;
+            noteContent.setRangeText(button.dataset.prefix, start, start, 'end');
+            refreshNotePreview();
+            noteContent.focus();
+        });
+    });
+    document.getElementById('note-link-btn').addEventListener('click', () => {
+        const url = prompt('Link URL');
+        if (url) wrapSelection('[', `](${url})`);
+    });
+    document.getElementById('note-table-btn').addEventListener('click', () => {
+        const table = '| Column 1 | Column 2 |\n| --- | --- |\n| Value | Value |';
+        const start = noteContent.selectionStart;
+        noteContent.setRangeText(table, start, start, 'end');
+        refreshNotePreview();
+    });
+    document.getElementById('note-emoji-btn').addEventListener('click', () => wrapSelection('😀', ''));
+    document.getElementById('note-font-size').addEventListener('change', (event) => {
+        if (event.target.value) wrapSelection(`<span style="font-size:${event.target.value === 'small' ? '0.85rem' : '1.35rem'}">`, '</span>');
+        event.target.value = '';
+    });
+    document.getElementById('note-font-family').addEventListener('change', (event) => {
+        if (event.target.value) wrapSelection(`<span style="font-family:${event.target.value}">`, '</span>');
+        event.target.value = '';
+    });
 </script>
 {% endblock %}

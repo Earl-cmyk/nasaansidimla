@@ -13,9 +13,12 @@
     </header>
 
     <div class="bento-grid" id="dashboard-content">
-        <article class="card card-empty">
-            <p class="empty-state">No data yet. Start by adding notes, logging workouts, or tracking your spending.</p>
-        </article>
+        <article class="card"><span class="meta-label">Notes</span><h2 id="dash-notes">0</h2><a href="/notes">Open notes</a></article>
+        <article class="card"><span class="meta-label">Upcoming</span><ul id="dash-upcoming"><li>Nothing scheduled</li></ul><a href="/calendar">Open calendar</a></article>
+        <article class="card"><span class="meta-label">Fitness · 30 days</span><h2 id="dash-workouts">0</h2><p id="dash-calories">0 kcal today</p><a href="/fitness">Open fitness</a></article>
+        <article class="card"><span class="meta-label">Latest BMI</span><h2 id="dash-bmi">Not tracked</h2><a href="/fitness">Track health</a></article>
+        <article class="card"><span class="meta-label">Net balance</span><h2 id="dash-balance">$0.00</h2><a href="/wallets">Open wallets</a></article>
+        <article class="card"><span class="meta-label">Active workspace</span><h2 id="dash-projects">0 projects</h2><p id="dash-files">0 archived files</p><a href="/workbench">Open workbench</a></article>
     </div>
 </section>
 
@@ -70,5 +73,19 @@
             else if (action === 'project') window.location.href = '/workbench';
         });
     });
+
+    async function loadDashboard() {
+        const response = await fetch('/api/dashboard');
+        const data = await response.json();
+        document.getElementById('dash-notes').textContent = data.notes;
+        document.getElementById('dash-workouts').textContent = data.workouts;
+        document.getElementById('dash-calories').textContent = `${data.calories} kcal today`;
+        document.getElementById('dash-bmi').textContent = data.bmi ? data.bmi.value : 'Not tracked';
+        document.getElementById('dash-balance').textContent = `$${Number(data.balance).toFixed(2)}`;
+        document.getElementById('dash-projects').textContent = `${data.projects} projects`;
+        document.getElementById('dash-files').textContent = `${data.files} archived files`;
+        document.getElementById('dash-upcoming').innerHTML = data.upcoming.length ? data.upcoming.map((event) => `<li>${event.date} ${event.time} · ${event.title}</li>`).join('') : '<li>Nothing scheduled</li>';
+    }
+    loadDashboard();
 </script>
 {% endblock %}
