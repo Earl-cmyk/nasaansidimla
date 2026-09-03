@@ -116,10 +116,11 @@ def fetch_duckduckgo_results(query):
             }
         ]
 
-    matches = re.findall(r'<a rel="nofollow" class="result-link" href="(.*?)">(.*?)</a>', html)
+    matches = re.findall(r'<a[^>]+class="[^"]*result(?:__a|-link)[^"]*"[^>]+href="(.*?)"[^>]*>(.*?)</a>', html, flags=re.IGNORECASE | re.DOTALL)
     results = []
     for idx, (link, title_raw) in enumerate(matches[:5]):
         title = re.sub(r"<.*?>", "", title_raw).strip()
+        title = re.sub(r"&(?:amp|lt|gt|quot|#39);", " ", title).strip()
         if not title:
             continue
         results.append({
@@ -988,16 +989,16 @@ def api_get_files():
             with conn.cursor() as cursor:
                 if file_type:
                     cursor.execute(
-                        "SELECT id, filename, file_type, description, uploaded_at FROM files WHERE file_type = %s ORDER BY uploaded_at DESC",
+                        "SELECT id, filename, file_type, description, mime_type, file_size, content IS NOT NULL, uploaded_at FROM files WHERE file_type = %s ORDER BY uploaded_at DESC",
                         (file_type,)
                     )
                 else:
                     cursor.execute(
-                        "SELECT id, filename, file_type, description, uploaded_at FROM files ORDER BY uploaded_at DESC"
+                        "SELECT id, filename, file_type, description, mime_type, file_size, content IS NOT NULL, uploaded_at FROM files ORDER BY uploaded_at DESC"
                     )
                 rows = cursor.fetchall()
         return jsonify([
-            {"id": row[0], "filename": row[1], "file_type": row[2], "description": row[3], "uploaded_at": row[4].isoformat() if hasattr(row[4], "isoformat") else row[4]}
+            {"id": row[0], "filename": row[1], "file_type": row[2], "description": row[3], "mime_type": row[4], "file_size": row[5], "preview_url": f"/api/files/{row[0]}/preview" if row[6] and row[2] == "image" else None, "uploaded_at": row[7].isoformat() if hasattr(row[7], "isoformat") else row[7]}
             for row in rows
         ])
     except Exception:
@@ -1006,18 +1007,48 @@ def api_get_files():
 
 @app.route("/api/files", methods=["POST"])
 def api_create_file():
-    data = request.get_json() or {}
-    filename = (data.get("filename") or "file").strip()
-    file_type = (data.get("file_type") or "document").strip()
-    description = (data.get("description") or "").strip()
+    if request.files.get("file"):
+        upload = request.files["file"]
+        filename = (upload.filename or "image").strip()
+        file_type = (request.form.get("file_type") or "image").strip()
+        description = (request.form.get("description") or "").strip()
+        mime_type = (upload.mimetype or "").lower()
+        if file_type != "image" or not mime_type.startswith("image/"):
+            return jsonify({"status": "error", "message": "Only image files can be uploaded here."}), 415
+        content = upload.read(10 * 1024 * 1024 + 1)
+        if len(content) > 10 * 1024 * 1024:
+            return jsonify({"status": "error", "message": "Images must be 10 MB or smaller."}), 413
+    else:
+        data = request.get_json() or {}
+        filename = (data.get("filename") or "file").strip()
+        file_type = (data.get("file_type") or "document").strip()
+        description = (data.get("description") or "").strip()
+        mime_type = None
+        content = None
 
     with get_db() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO files (filename, file_type, description) VALUES (%s, %s, %s)",
-                (filename, file_type, description),
+                "INSERT INTO files (filename, file_type, description, mime_type, file_size, content) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                (filename, file_type, description, mime_type, len(content) if content else None, content),
             )
-    return jsonify({"status": "ok"})
+            file_id = cursor.fetchone()[0]
+    return jsonify({"status": "ok", "id": file_id, "preview_url": f"/api/files/{file_id}/preview" if file_type == "image" else None}), 201
+
+
+@app.route("/api/files/<int:file_id>/preview")
+def api_preview_file(file_id):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT filename, mime_type, content FROM files WHERE id = %s AND file_type = 'image'", (file_id,))
+                row = cursor.fetchone()
+        if not row or not row[2]:
+            return jsonify({"status": "error", "message": "Image not found"}), 404
+        from io import BytesIO
+        return send_file(BytesIO(bytes(row[2])), mimetype=row[1] or "application/octet-stream", download_name=row[0], as_attachment=False, conditional=True)
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 
 @app.route("/api/files/<int:file_id>/download")

@@ -100,8 +100,15 @@ CREATE TABLE IF NOT EXISTS files (
     filename TEXT NOT NULL,
     file_type TEXT NOT NULL,
     description TEXT,
+    mime_type TEXT,
+    file_size INTEGER,
+    content BYTEA,
     uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE files ADD COLUMN IF NOT EXISTS mime_type TEXT;
+ALTER TABLE files ADD COLUMN IF NOT EXISTS file_size INTEGER;
+ALTER TABLE files ADD COLUMN IF NOT EXISTS content BYTEA;
 
 -- Tracks table (Works audio library)
 CREATE TABLE IF NOT EXISTS tracks (
@@ -174,11 +181,25 @@ CREATE TABLE IF NOT EXISTS paper_trades (
 INSERT INTO exercises (muscle_group, name, instructions) VALUES
     ('chest', 'Push-up', 'Keep your body straight and lower your chest with control.'),
     ('chest', 'Bench press', 'Press the bar from chest level while keeping your feet grounded.'),
+    ('chest', 'Chest fly', 'Keep a soft bend in your elbows and bring your hands together with control.'),
+    ('chest', 'Incline dumbbell press', 'Press from an incline while keeping your shoulder blades supported.'),
     ('arms', 'Biceps curl', 'Curl the weight without swinging your elbows forward.'),
     ('arms', 'Triceps dip', 'Lower your body with control and press through your palms.'),
+    ('arms', 'Hammer curl', 'Keep your palms facing inward and control the lowering phase.'),
+    ('arms', 'Overhead triceps extension', 'Keep your elbows close while extending the weight overhead.'),
     ('shoulders', 'Overhead press', 'Press weights overhead while keeping your ribs stacked.'),
+    ('shoulders', 'Lateral raise', 'Raise the weights to shoulder height with a slight bend in your elbows.'),
+    ('shoulders', 'Face pull', 'Pull the rope toward your face while rotating your hands outward.'),
     ('core', 'Plank', 'Brace your core and keep a straight line from shoulders to heels.'),
+    ('core', 'Dead bug', 'Move opposite arm and leg slowly while keeping your lower back grounded.'),
+    ('core', 'Hanging knee raise', 'Lift your knees without swinging and keep your ribs tucked.'),
     ('legs', 'Bodyweight squat', 'Sit your hips back, keep your knees tracking over your toes.'),
     ('legs', 'Reverse lunge', 'Step back and lower both knees with control.'),
-    ('back', 'Bent-over row', 'Pull toward your ribs while maintaining a neutral spine.')
+    ('legs', 'Romanian deadlift', 'Hinge at the hips and keep the weight close to your legs.'),
+    ('legs', 'Calf raise', 'Rise through the balls of your feet and pause at the top.'),
+    ('back', 'Bent-over row', 'Pull toward your ribs while maintaining a neutral spine.'),
+    ('back', 'Pull-up', 'Drive your elbows down and lift your chest toward the bar.'),
+    ('back', 'Lat pulldown', 'Pull the bar toward your upper chest without leaning back excessively.'),
+    ('back', 'Seated cable row', 'Pull toward your waist while keeping your torso tall.'),
+    ('back', 'Deadlift', 'Brace your trunk and drive through the floor while keeping the bar close.')
 ON CONFLICT (muscle_group, name) DO NOTHING;

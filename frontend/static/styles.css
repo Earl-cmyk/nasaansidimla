@@ -34,7 +34,7 @@ html {
 
 *::-webkit-scrollbar-thumb {
     background: #536575;
-    border: 2px solid #101317;
+    border: 0;
     border-radius: 8px;
 }
 
@@ -1287,6 +1287,7 @@ h1, h2, h3, h4 {
 }
 
 .wallet-shell {
+    border: none;
     display: grid;
     gap: 22px;
 }
@@ -1704,6 +1705,7 @@ body {
 .dashboard-shell,
 .fitness-shell,
 .wallet-shell {
+    border: none;
     padding: var(--space-4);
 }
 
@@ -1932,6 +1934,38 @@ label,
     .wallet-summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+}
+
+/* Route shells stay open to the page; their inner widgets provide the framing. */
+.page-panel,
+.dashboard-shell,
+.fitness-shell,
+.wallet-shell {
+    border: 0;
+    background: #000;
+}
+
+.search-results {
+    padding-top: 44px;
+}
+
+.search-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    background: #000;
+    color: #fff;
+    cursor: pointer;
+}
+
+.search-results-content {
+    display: grid;
+    gap: var(--space-2);
 }
 
 @media (max-width: 620px) {
@@ -2235,4 +2269,665 @@ label,
     .track-art { width: 40px; height: 40px; }
     .track-duration { display: none; }
     .track-progress { grid-column: 2 / 4; }
+}
+
+/* Borderless bento surfaces: boundaries come from contrast, spacing, and shadow. */
+button {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.topbar {
+    border-bottom: 1px solid var(--line);
+}
+
+input,
+textarea,
+select,
+.search-wrap,
+.page-panel,
+.card,
+.calendar-card,
+.mini-card,
+.wallet-card,
+.wallet-panel,
+.work-view,
+.result-card,
+.modal-content,
+.modal-header,
+.editor-toolbar,
+.note-editor-preview,
+.workbench-canvas,
+.workspace-slide,
+.quote-card,
+.project-item,
+.video-item,
+.account-item,
+.goal-item,
+.mini-grid > div,
+.spending-list li,
+.market-card,
+.insight-box,
+.masonry-item,
+.track-row,
+.assistant-drawer,
+.assistant-header,
+.assistant-note,
+.assistant-message,
+.drop-zone,
+.agenda-event,
+.timeline-list li,
+.agenda-hour,
+.agenda-all-day,
+.rich-content th,
+.rich-content td,
+.workspace-sheet th,
+.workspace-sheet td {
+    border: 0;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+button:focus-visible,
+[contenteditable="true"]:focus,
+.drop-zone:focus-visible {
+    border-color: transparent;
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(124, 199, 255, 0.14);
+}
+
+.page-panel,
+.dashboard-shell,
+.fitness-shell,
+.wallet-shell,
+.card,
+.calendar-card,
+.mini-card,
+.wallet-card,
+.wallet-panel,
+.work-view,
+.modal-content,
+.workbench-canvas,
+.workspace-slide,
+.masonry-item,
+.track-row {
+    box-shadow: none;
+}
+
+.masonry-item {
+    overflow: hidden;
+    min-height: 150px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.masonry-item img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 150px;
+    object-fit: cover;
+}
+
+/* Transparent fitness stage with anatomy colors limited to the SVG regions. */
+.fitness-shell,
+.fitness-shell .card,
+.fitness-shell .body-visual,
+.fitness-shell .body-map {
+    background: transparent;
+    border: 0;
+}
+
+.body-visual {
+    min-height: 0;
+    margin-top: var(--space-3);
+    overflow: hidden;
+}
+
+.body-map {
+    width: 100%;
+    height: auto;
+}
+
+.anatomy-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 420px;
+}
+
+.body-base {
+    fill: rgba(203, 213, 219, 0.22);
+}
+
+.anatomy-region {
+    --muscle-color: rgba(124, 199, 255, 0.62);
+    cursor: pointer;
+    outline: none;
+}
+
+.anatomy-region path {
+    fill: var(--muscle-color);
+    opacity: 0.82;
+    transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.anatomy-region:hover path,
+.anatomy-region:focus path {
+    opacity: 1;
+    filter: brightness(1.18);
+}
+
+.anatomy-region:focus-visible {
+    filter: drop-shadow(0 0 4px var(--primary));
+}
+
+.figure-label {
+    fill: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-anchor: middle;
+}
+
+.fitness-shell .card-header,
+.fitness-shell .muscle-info,
+.fitness-shell .calorie-summary {
+    background: transparent;
+}
+
+@media (max-width: 620px) {
+    .anatomy-svg {
+        min-height: 0;
+    }
+
+    .body-visual {
+        margin-inline: -8px;
+    }
+}
+
+/* Fitness panels share the page surface; only interactive muscle buttons carry color. */
+.fitness-shell,
+.fitness-shell > .fitness-grid,
+.anatomy-panel,
+.calorie-panel,
+.bmi-panel,
+.body-visual {
+    background: transparent;
+}
+
+.body-visual {
+    border-radius: 0;
+}
+
+.body-silhouette {
+    opacity: 0.1;
+}
+
+.muscle-info {
+    color: var(--muted);
+}
+
+/* Keep the page atmospheric; shells and content surfaces inherit it. */
+.page-panel,
+.dashboard-shell,
+.fitness-shell,
+.wallet-shell,
+.card,
+.calendar-card,
+.mini-card,
+.wallet-card,
+.wallet-panel,
+.work-view,
+.result-card,
+.modal-content,
+.modal-header,
+.modal-body,
+.assistant-drawer,
+.assistant-header,
+.assistant-note,
+.assistant-message,
+.editor-toolbar,
+.note-editor-preview,
+.workbench-canvas,
+.canvas-toolbar,
+.workspace-sheet,
+.workspace-slides,
+.project-item,
+.quote-card,
+.video-item,
+.account-item,
+.goal-item,
+.market-card,
+.insight-box,
+.track-row,
+.masonry-item,
+.exercise-option,
+.body-visual {
+    background: transparent;
+}
+
+.workspace-rich,
+.workspace-slide,
+.workspace-sheet table,
+.workspace-sheet th,
+.workspace-sheet td {
+    background: transparent;
+}
+
+.fitness-shell .macro-ring {
+    background: conic-gradient(var(--primary) 0 64%, rgba(255, 255, 255, 0.08) 64% 100%);
+}
+
+.anatomy-card-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.anatomy-card-heading h2 {
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    letter-spacing: -0.02em;
+}
+
+.anatomy-kicker {
+    margin: 0 0 4px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.heatmap-key {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.heatmap-key i {
+    display: block;
+    width: 80px;
+    height: 7px;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #4c8dff, #f4d35e, #ef476f);
+}
+
+.anatomy-card-stage {
+    position: relative;
+    min-height: 620px;
+    overflow: hidden;
+}
+
+.anatomy-svg,
+.anatomy-leaders {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.anatomy-leaders {
+    z-index: 2;
+    pointer-events: none;
+}
+
+.anatomy-leaders g {
+    opacity: 0.55;
+    transition: opacity 0.2s ease;
+}
+
+.anatomy-leaders g.is-selected,
+.anatomy-leaders g:hover {
+    opacity: 1;
+}
+
+.anatomy-leaders path {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.2;
+}
+
+.anatomy-leaders circle {
+    fill: var(--primary);
+    stroke: var(--bg);
+    stroke-width: 2;
+}
+
+.anatomy-svg {
+    z-index: 1;
+}
+
+.body-base {
+    fill: rgba(203, 213, 219, 0.3);
+    stroke: rgba(203, 213, 219, 0.36);
+    stroke-width: 1;
+}
+
+.anatomy-region path {
+    fill: var(--muscle-color, rgba(124, 199, 255, 0.65));
+    stroke: rgba(255, 255, 255, 0.2);
+    stroke-width: 1;
+}
+
+.anatomy-region.is-selected path {
+    stroke: #fff;
+    stroke-width: 2;
+    filter: brightness(1.22) drop-shadow(0 0 5px var(--muscle-color));
+}
+
+.anatomy-callouts {
+    position: absolute;
+    top: 22px;
+    bottom: 55px;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 142px;
+}
+
+.anatomy-callouts-left { left: 0; align-items: flex-start; }
+.anatomy-callouts-right { right: 0; align-items: flex-end; }
+
+.callout-button {
+    min-height: 30px;
+    padding: 5px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 5px;
+    background: rgba(16, 19, 23, 0.74);
+    color: var(--text);
+    font-size: 0.72rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.callout-button:hover,
+.callout-button.is-selected {
+    border-color: var(--primary);
+    color: #fff;
+    background: rgba(124, 199, 255, 0.18);
+}
+
+.sorter-heading,
+.sorter-controls,
+.exercise-sorter-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+
+.exercise-sorter {
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sorter-heading h3 { margin: 0; }
+.sorter-heading > span { color: var(--primary); font-size: 0.85rem; }
+.sorter-controls { margin: var(--space-3) 0; }
+.sorter-controls input { flex: 1; }
+.sorter-controls select { width: 150px; }
+.exercise-sorter-list { display: grid; gap: 8px; }
+.exercise-sorter-item { padding: 10px 0; }
+.exercise-sorter-item strong { display: block; }
+.exercise-sorter-item p { margin: 4px 0 0; color: var(--muted); font-size: 0.82rem; }
+.exercise-sorter-item .secondary-button { flex: 0 0 auto; }
+
+@media (max-width: 700px) {
+    .anatomy-card-heading { align-items: flex-start; flex-direction: column; }
+    .anatomy-card-stage { min-height: 520px; }
+    .anatomy-callouts { width: 110px; top: 12px; bottom: 42px; }
+    .callout-button { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+    .exercise-sorter-item { align-items: flex-start; }
+}
+
+/* Outer route shells are borderless; widget cards inside them remain framed. */
+body > main.page-shell > .page-panel,
+body > main.page-shell > .dashboard-shell,
+body > main.page-shell > .fitness-shell,
+body > main.page-shell > .wallet-shell {
+    border: 0 !important;
+}
+
+/* Monochrome widget system with intentional calendar and heatmap exceptions. */
+:root {
+    --black: #000;
+    --white: #fff;
+    --white-soft: rgba(255, 255, 255, 0.72);
+}
+
+body {
+    background: #000;
+    color: #fff;
+}
+
+.page-shell,
+.page-panel,
+.dashboard-shell,
+.fitness-shell,
+.wallet-shell,
+.card,
+.calendar-card,
+.mini-card,
+.wallet-card,
+.wallet-panel,
+.work-view,
+.modal-content,
+.modal-header,
+.modal-body,
+.assistant-drawer,
+.assistant-header,
+.assistant-note,
+.assistant-message,
+.workbench-canvas,
+.canvas-toolbar,
+.workspace-rich,
+.workspace-sheet,
+.workspace-slides,
+.workspace-slide,
+.result-card,
+.note-editor-preview,
+.editor-toolbar,
+.project-item,
+.quote-card,
+.video-item,
+.account-item,
+.goal-item,
+.market-card,
+.insight-box,
+.track-row,
+.masonry-item,
+.exercise-option {
+    background: #000;
+    color: #fff;
+    border-color: #fff;
+}
+
+.dashboard-shell,
+.page-panel,
+.fitness-shell,
+.wallet-shell,
+.card,
+.calendar-card,
+.mini-card,
+.wallet-card,
+.wallet-panel,
+.work-view,
+.modal-content,
+.workbench-canvas,
+.workspace-rich,
+.workspace-sheet,
+.workspace-slide,
+.result-card,
+.note-editor-preview,
+.editor-toolbar,
+.project-item,
+.quote-card,
+.video-item,
+.account-item,
+.goal-item,
+.market-card,
+.insight-box,
+.track-row,
+.masonry-item,
+.exercise-option {
+    border: 1px solid #fff;
+}
+
+.dashboard-widget {
+    min-height: 170px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-4);
+}
+
+.dashboard-widget a,
+.dashboard-widget h2,
+.dashboard-widget h3,
+.dashboard-widget p,
+.dashboard-widget li,
+.card-header,
+.meta-label,
+.empty-state-text,
+.search-empty,
+.track-duration,
+.track-artist {
+    color: #fff;
+}
+
+.dashboard-widget a {
+    font-weight: 700;
+}
+
+.dashboard-widget:hover,
+.wallet-summary-grid .wallet-card:hover,
+.feed-card:hover,
+#selected-day-card:hover,
+#schedule-card:hover {
+    background: #000;
+    border-color: #fff;
+    box-shadow: 0 10px 26px rgba(255, 255, 255, 0.08);
+}
+
+.widget-upcoming,
+.widget-workspace {
+    grid-column: span 2;
+}
+
+.wallet-summary-grid .wallet-card {
+    min-height: 150px;
+    justify-content: space-between;
+}
+
+.feed-card,
+.note-detail-content,
+.workbench-canvas,
+.wallet-summary-grid .wallet-card,
+#selected-day-card,
+#schedule-card {
+    color: #fff;
+}
+
+.feed-card h3,
+.feed-card .note-excerpt,
+.note-detail-content .rich-content,
+.workbench-canvas h1,
+.workbench-canvas h2,
+.workbench-canvas h3,
+.workbench-canvas p {
+    color: #fff;
+}
+
+/* Calendar state colors and fitness heatmap remain intentionally colored. */
+.day.has-event {
+    background: rgba(124, 199, 255, 0.12);
+    border-color: rgba(124, 199, 255, 0.4);
+}
+
+.day.selected {
+    background: linear-gradient(135deg, rgba(124, 199, 255, 0.26), rgba(159, 140, 255, 0.32));
+    border-color: rgba(159, 140, 255, 0.5);
+}
+
+.anatomy-region path {
+    border: 0;
+}
+
+.search-results {
+    position: fixed;
+    top: 76px;
+    left: 50%;
+    z-index: 40;
+    width: min(720px, calc(100vw - 32px));
+    max-height: min(70vh, 620px);
+    overflow-y: auto;
+    transform: translateX(-50%);
+    margin: 0;
+    padding: var(--space-3);
+    background: #000;
+    border: 1px solid #fff;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.7);
+}
+
+.search-results[hidden] { display: none; }
+.result-card { padding: var(--space-3); }
+.result-card + .result-card { margin-top: var(--space-2); }
+.result-card a,
+.result-card p { color: #fff; }
+
+.calendar-card,
+#selected-day-card,
+#schedule-card,
+.note-modal .modal-content,
+.wallet-summary-grid .wallet-card,
+.workbench-canvas {
+    background: #000;
+    color: #fff;
+    border-color: #fff;
+}
+
+.fitness-shell .card,
+.fitness-shell .body-visual,
+.fitness-shell .body-map {
+    border-color: transparent;
+}
+
+input,
+textarea,
+select {
+    color: #fff;
+    border-color: #fff;
+    background: #000;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: rgba(255, 255, 255, 0.68);
+}
+
+@media (max-width: 620px) {
+    .search-results {
+        top: 126px;
+        width: calc(100vw - 20px);
+    }
+
+    .dashboard-widget {
+        min-height: 145px;
+        padding: var(--space-3);
+    }
+
+    .widget-upcoming,
+    .widget-workspace {
+        grid-column: auto;
+    }
 }

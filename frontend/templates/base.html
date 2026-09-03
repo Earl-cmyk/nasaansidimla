@@ -26,7 +26,10 @@
             <button id="assistant-toggle" class="nav-icon" title="Open assistant" aria-label="Open assistant" aria-expanded="false" aria-controls="assistant-drawer">💬</button>
         </nav>
 
-        <div id="search-results" class="search-results" aria-live="polite"></div>
+        <div id="search-results" class="search-results" aria-live="polite" role="dialog" aria-label="Rick search results" hidden>
+            <button id="search-close" class="search-close" type="button" aria-label="Close search results">✕</button>
+            <div id="search-results-content"></div>
+        </div>
 
         <main class="page-shell">
             {% block content %}{% endblock %}
@@ -52,6 +55,8 @@
             const searchButton = document.getElementById('search-button');
             const searchInput = document.getElementById('search-input');
             const searchResults = document.getElementById('search-results');
+            const searchClose = document.getElementById('search-close');
+            const searchResultsContent = document.getElementById('search-results-content');
             const assistantForm = document.getElementById('assistant-form');
             const assistantHistory = document.getElementById('assistant-history');
             const assistantToggle = document.getElementById('assistant-toggle');
@@ -75,33 +80,63 @@
             async function handleSearch() {
                 const query = searchInput.value.trim();
                 if (!query) {
-                    searchResults.innerHTML = '<p class="search-empty">Type something to search with Rick.</p>';
+                    searchResultsContent.innerHTML = '<p class="search-empty">Type something to search with Rick.</p>';
+                    searchResults.hidden = false;
                     return;
                 }
 
-                searchResults.innerHTML = '<p class="search-empty">Searching...</p>';
-                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
-                const data = await response.json();
+                searchResultsContent.innerHTML = '<p class="search-empty">Searching...</p>';
+                searchResults.hidden = false;
+                try {
+                    const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                    if (!response.ok) throw new Error('Search request failed');
+                    const data = await response.json();
 
-                if (!data.results || data.results.length === 0) {
-                    searchResults.innerHTML = '<p class="search-empty">No results found.</p>';
-                    return;
+                    if (!data.results || data.results.length === 0) {
+                        searchResultsContent.innerHTML = '<p class="search-empty">No results found.</p>';
+                        return;
+                    }
+
+                    searchResultsContent.innerHTML = '';
+                    data.results.forEach((item) => {
+                        const card = document.createElement('article');
+                        card.className = 'result-card';
+                        const title = document.createElement('h4');
+                        title.textContent = item.title || 'Untitled result';
+                        const link = document.createElement('a');
+                        link.href = item.url || '#';
+                        link.target = '_blank';
+                        link.rel = 'noreferrer';
+                        link.textContent = item.url || '';
+                        const snippet = document.createElement('p');
+                        snippet.textContent = item.snippet || '';
+                        card.append(title, link, snippet);
+                        searchResultsContent.appendChild(card);
+                    });
+                } catch (error) {
+                    searchResultsContent.innerHTML = '<p class="search-empty">Rick could not complete that search.</p>';
                 }
-
-                searchResults.innerHTML = data.results.map(item => `
-                    <article class="result-card">
-                        <h4>${item.title}</h4>
-                        <a href="${item.url}" target="_blank" rel="noreferrer">${item.url}</a>
-                        <p>${item.snippet}</p>
-                    </article>
-                `).join('');
             }
+
+            searchClose.addEventListener('click', () => {
+                searchResults.hidden = true;
+            });
 
             searchButton.addEventListener('click', handleSearch);
             searchInput.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     handleSearch();
                 }
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!searchResults.contains(event.target) && !searchInput.contains(event.target) && !searchButton.contains(event.target)) {
+                    searchResults.hidden = true;
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') searchResults.hidden = true;
             });
 
             assistantForm.addEventListener('submit', async (event) => {

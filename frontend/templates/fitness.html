@@ -16,21 +16,62 @@
     </div>
 
     <div class="fitness-grid">
-        <div class="anatomy-panel card">
-            <h3>Muscle map</h3>
-            <p class="muscle-info">Muscle intensity updates as you log workouts. Blue = low activity, Red = high activity.</p>
-            <div class="body-visual" id="body-visual">
-                <div class="body-map" aria-label="Interactive muscle map">
-                    <div class="body-silhouette" aria-hidden="true"><span class="head"></span><span class="neck"></span><span class="torso"></span><span class="arm left"></span><span class="arm right"></span><span class="leg left"></span><span class="leg right"></span></div>
-                    <button class="muscle muscle-shoulders" data-muscle="shoulders" type="button"><span class="muscle-shape"></span><span>Shoulders</span></button>
-                    <button class="muscle muscle-chest" data-muscle="chest" type="button"><span class="muscle-shape"></span><span>Chest</span></button>
-                    <button class="muscle muscle-arms" data-muscle="arms" type="button"><span class="muscle-shape"></span><span>Arms</span></button>
-                    <button class="muscle muscle-core" data-muscle="core" type="button"><span class="muscle-shape"></span><span>Core</span></button>
-                    <button class="muscle muscle-legs" data-muscle="legs" type="button"><span class="muscle-shape"></span><span>Legs</span></button>
-                    <button class="muscle muscle-back" data-muscle="back" type="button"><span class="muscle-shape"></span><span>Back</span></button>
+        <section class="anatomy-panel card" aria-labelledby="anatomy-title">
+            <div class="anatomy-card-heading">
+                <div>
+                    <p class="anatomy-kicker">Anatomy Card / Exercise Selector</p>
+                    <h2 id="anatomy-title">Muscular System</h2>
+                    <p class="muscle-info">Select a callout to explore exercises and heatmap activity.</p>
+                </div>
+                <div class="heatmap-key" aria-label="Heatmap scale"><span>Low</span><i></i><span>High</span></div>
+            </div>
+            <div class="anatomy-card-stage" id="body-visual">
+                <svg class="anatomy-leaders" viewBox="0 0 1000 620" aria-hidden="true">
+                    <g data-leader="trapezius"><path d="M252 90H120L40 45"/><circle cx="252" cy="90" r="5"/></g>
+                    <g data-leader="deltoid"><path d="M222 132H120L40 108"/><circle cx="222" cy="132" r="5"/></g>
+                    <g data-leader="pectorals"><path d="M252 174H120L40 171"/><circle cx="252" cy="174" r="5"/></g>
+                    <g data-leader="biceps"><path d="M205 212H120L40 234"/><circle cx="205" cy="212" r="5"/></g>
+                    <g data-leader="core"><path d="M252 238H120L40 297"/><circle cx="252" cy="238" r="5"/></g>
+                    <g data-leader="quadriceps"><path d="M244 350H120L40 360"/><circle cx="244" cy="350" r="5"/></g>
+                    <g data-leader="lats"><path d="M748 174H880L960 132"/><circle cx="748" cy="174" r="5"/></g>
+                    <g data-leader="triceps"><path d="M795 212H880L960 202"/><circle cx="795" cy="212" r="5"/></g>
+                    <g data-leader="glutes"><path d="M748 270H880L960 270"/><circle cx="748" cy="270" r="5"/></g>
+                    <g data-leader="hamstrings"><path d="M752 350H880L960 342"/><circle cx="752" cy="350" r="5"/></g>
+                    <g data-leader="calves"><path d="M752 455H880L960 456"/><circle cx="752" cy="455" r="5"/></g>
+                </svg>
+                <svg class="anatomy-svg" viewBox="0 0 1000 620" role="img" aria-label="Front and back interactive muscle map">
+                    <g class="figure figure-front" aria-label="Anterior front view">
+                        <circle class="body-base head" cx="280" cy="72" r="31"/><path class="body-base neck" d="M262 101h36v32h-36z"/><path class="body-base torso" d="M230 125Q280 105 330 125l34 105-34 105h-100l-34-105z"/><path class="body-base limb" d="M228 132 185 150 135 275l25 10 61-101zM332 132l43 18 50 125-25 10-61-101z"/><path class="body-base limb" d="M245 332h38l-6 165-31 0zM277 332h38l6 165h-31z"/><path class="body-base foot" d="M246 497h32l-5 96h-43zM286 497h32l15 96h-43z"/>
+                        <g class="anatomy-region" data-region="trapezius" data-muscle="shoulders" tabindex="0" role="button" aria-label="Trapezius, shoulders"><path d="M262 126 280 154 298 126l25 25-43 42-43-42z"/></g>
+                        <g class="anatomy-region" data-region="deltoid" data-muscle="shoulders" tabindex="0" role="button" aria-label="Deltoid, shoulders"><path d="M230 133q-35 0-42 25l35 28 23-35zM330 133q35 0 42 25l-35 28-23-35z"/></g>
+                        <g class="anatomy-region" data-region="pectorals" data-muscle="chest" tabindex="0" role="button" aria-label="Pectoralis Major, chest"><path d="M237 165q20-20 43 2v53q-25 14-43-4zM323 165q-20-20-43 2v53q25 14 43-4z"/></g>
+                        <g class="anatomy-region" data-region="biceps" data-muscle="arms" tabindex="0" role="button" aria-label="Biceps, arms"><path d="M202 176l-43 101 22 8 52-94zM358 176l43 101-22 8-52-94z"/></g>
+                        <g class="anatomy-region" data-region="core" data-muscle="core" tabindex="0" role="button" aria-label="Rectus Abdominis, core"><path d="M255 220h50l-5 111h-40z"/></g>
+                        <g class="anatomy-region" data-region="quadriceps" data-muscle="legs" tabindex="0" role="button" aria-label="Quadriceps, legs"><path d="M245 331h39l-6 166h-31zM276 331h39l6 166h-31z"/></g>
+                    </g>
+                    <g class="figure figure-back" aria-label="Posterior back view">
+                        <circle class="body-base head" cx="720" cy="72" r="31"/><path class="body-base neck" d="M702 101h36v32h-36z"/><path class="body-base torso" d="M670 125Q720 105 770 125l34 105-34 105h-100l-34-105z"/><path class="body-base limb" d="M668 132 625 150l-50 125 25 10 61-101zM772 132l43 18 50 125-25 10-61-101z"/><path class="body-base limb" d="M685 332h38l-6 165h-31zM717 332h38l6 165h-31z"/><path class="body-base foot" d="M686 497h32l-5 96h-43zM726 497h32l15 96h-43z"/>
+                        <g class="anatomy-region" data-region="lats" data-muscle="back" tabindex="0" role="button" aria-label="Latissimus Dorsi, back"><path d="M670 155q50 38 100 0l28 105-78 70-78-70z"/></g>
+                        <g class="anatomy-region" data-region="triceps" data-muscle="arms" tabindex="0" role="button" aria-label="Triceps, arms"><path d="M642 176l-43 101 22 8 52-94zM798 176l43 101-22 8-52-94z"/></g>
+                        <g class="anatomy-region" data-region="glutes" data-muscle="legs" tabindex="0" role="button" aria-label="Gluteus Maximus, legs"><path d="M675 260q45-20 90 0l-8 70q-37 26-74 0z"/></g>
+                        <g class="anatomy-region" data-region="hamstrings" data-muscle="legs" tabindex="0" role="button" aria-label="Hamstrings, legs"><path d="M685 331h39l-6 166h-31zM716 331h39l6 166h-31z"/></g>
+                        <g class="anatomy-region" data-region="calves" data-muscle="legs" tabindex="0" role="button" aria-label="Gastrocnemius, calves"><path d="M685 460h34l-5 37h-31zM721 460h34l5 37h-31z"/></g>
+                    </g>
+                    <text class="figure-label" x="280" y="615">ANTERIOR / FRONT</text><text class="figure-label" x="720" y="615">POSTERIOR / BACK</text>
+                </svg>
+                <div class="anatomy-callouts anatomy-callouts-left">
+                    <button class="callout-button" data-region-target="trapezius" type="button">Trapezius</button><button class="callout-button" data-region-target="deltoid" type="button">Deltoid</button><button class="callout-button" data-region-target="pectorals" type="button">Pectoralis Major</button><button class="callout-button" data-region-target="biceps" type="button">Biceps</button><button class="callout-button" data-region-target="core" type="button">Rectus Abdominis</button><button class="callout-button" data-region-target="quadriceps" type="button">Quadriceps</button>
+                </div>
+                <div class="anatomy-callouts anatomy-callouts-right">
+                    <button class="callout-button" data-region-target="lats" type="button">Latissimus Dorsi</button><button class="callout-button" data-region-target="triceps" type="button">Triceps</button><button class="callout-button" data-region-target="glutes" type="button">Gluteus Maximus</button><button class="callout-button" data-region-target="hamstrings" type="button">Hamstrings</button><button class="callout-button" data-region-target="calves" type="button">Gastrocnemius</button>
                 </div>
             </div>
-        </div>
+            <section class="exercise-sorter" aria-labelledby="exercise-sorter-title">
+                <div class="sorter-heading"><div><p class="anatomy-kicker">Exercise Selector</p><h3 id="exercise-sorter-title">Choose a region</h3></div><span id="selected-region-label">All exercises</span></div>
+                <div class="sorter-controls"><input id="exercise-search" type="search" placeholder="Search exercises..." aria-label="Search exercises"><select id="exercise-sort" aria-label="Sort exercises"><option value="name">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
+                <div id="exercise-sorter-list" class="exercise-sorter-list"><p class="empty-state-text">Select a muscle callout to load exercises.</p></div>
+            </section>
+        </section>
 
         <aside class="calorie-panel card">
             <div class="card-header">
@@ -150,6 +191,12 @@
     const calorieForm = document.getElementById('calorie-form');
     const exerciseModal = document.getElementById('exercise-modal');
     const exerciseList = document.getElementById('exercise-list');
+    const sorterList = document.getElementById('exercise-sorter-list');
+    const exerciseSearch = document.getElementById('exercise-search');
+    const exerciseSort = document.getElementById('exercise-sort');
+    const selectedRegionLabel = document.getElementById('selected-region-label');
+    let allExercises = [];
+    let selectedRegion = null;
     let selectedMuscle = '';
     let selectedExercise = '';
 
@@ -167,18 +214,51 @@
         }
     });
 
-    document.querySelectorAll('.muscle').forEach((muscleElement) => {
-        muscleElement.addEventListener('click', async () => {
-            selectedMuscle = muscleElement.dataset.muscle;
-            document.getElementById('exercise-modal-title').textContent = `${selectedMuscle} exercises`;
-            const response = await fetch(`/api/exercises?muscle_group=${encodeURIComponent(selectedMuscle)}`);
-            const exercises = await response.json();
-            exerciseList.innerHTML = exercises.length ? exercises.map((exercise, index) => `<label class="exercise-option"><input type="radio" name="exercise" value="${exercise.name}" ${index === 0 ? 'checked' : ''}><strong>${exercise.name}</strong><span>${exercise.instructions}</span></label>`).join('') : '<p>No exercises available.</p>';
-            selectedExercise = exercises[0]?.name || '';
-            exerciseModal.classList.add('open');
+    function renderExercises() {
+        const query = exerciseSearch.value.trim().toLowerCase();
+        const sortDirection = exerciseSort.value === 'name-desc' ? -1 : 1;
+        const exercises = allExercises.filter((exercise) => {
+            const matchesMuscle = !selectedMuscle || exercise.muscle_group === selectedMuscle;
+            return matchesMuscle && `${exercise.name} ${exercise.instructions}`.toLowerCase().includes(query);
+        }).sort((first, second) => first.name.localeCompare(second.name) * sortDirection);
+        selectedRegionLabel.textContent = selectedRegion ? selectedRegion.label : 'All exercises';
+        if (!exercises.length) {
+            sorterList.innerHTML = '<p class="empty-state-text">No exercises match this selection.</p>';
+            return;
+        }
+        sorterList.innerHTML = exercises.map((exercise) => `<article class="exercise-sorter-item"><div><strong>${exercise.name}</strong><p>${exercise.instructions}</p></div><button class="secondary-button sorter-log" type="button" data-exercise="${exercise.name}">Log</button></article>`).join('');
+        sorterList.querySelectorAll('.sorter-log').forEach((button) => button.addEventListener('click', () => {
+            selectedExercise = button.dataset.exercise;
+            workoutForm[0].value = selectedMuscle;
+            workoutForm[1].value = selectedExercise;
+            workoutModal.classList.add('open');
+        }));
+    }
+
+    async function selectRegion(regionElement) {
+        selectedRegion = { label: regionElement.getAttribute('aria-label').split(',')[0], region: regionElement.dataset.region };
+        selectedMuscle = regionElement.dataset.muscle;
+        document.querySelectorAll('.anatomy-region, .callout-button').forEach((element) => element.classList.toggle('is-selected', element.dataset.region === selectedRegion.region || element.dataset.regionTarget === selectedRegion.region));
+        document.querySelectorAll('[data-leader]').forEach((element) => element.classList.toggle('is-selected', element.dataset.leader === selectedRegion.region));
+        renderExercises();
+        document.getElementById('exercise-sorter-title').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    document.querySelectorAll('[data-region]').forEach((muscleElement) => {
+        muscleElement.addEventListener('click', () => selectRegion(muscleElement));
+        muscleElement.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectRegion(muscleElement);
+            }
         });
     });
-    exerciseList.addEventListener('change', (event) => { selectedExercise = event.target.value; });
+    document.querySelectorAll('.callout-button').forEach((button) => button.addEventListener('click', () => {
+        const region = document.querySelector(`[data-region="${button.dataset.regionTarget}"]`);
+        if (region) selectRegion(region);
+    }));
+    exerciseSearch.addEventListener('input', renderExercises);
+    exerciseSort.addEventListener('change', renderExercises);
     document.getElementById('exercise-log-btn').addEventListener('click', () => {
         workoutForm[0].value = selectedMuscle;
         workoutForm[1].value = selectedExercise;
@@ -186,6 +266,12 @@
         workoutModal.classList.add('open');
     });
     document.getElementById('exercise-close').addEventListener('click', () => exerciseModal.classList.remove('open'));
+
+    async function loadExercises() {
+        const response = await fetch('/api/exercises');
+        allExercises = await response.json();
+        renderExercises();
+    }
 
     async function loadWorkoutProgress() {
         const response = await fetch('/api/muscle-progress');
@@ -260,13 +346,12 @@
 
     function updateMuscleColors() {
         Object.entries(workouts).forEach(([muscle, progress]) => {
-            const elem = document.querySelector(`[data-muscle="${muscle}"]`);
-            if (!elem) return;
+            const elements = document.querySelectorAll(`[data-muscle="${muscle}"]`);
             const intensity = Math.min(10, Math.max(0, Number(progress) || 0));
             const hue = 220 - (intensity / 10) * 180;
             const saturation = 55 + intensity * 4;
             const lightness = 45;
-            elem.style.backgroundColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+            elements.forEach((element) => element.style.setProperty('--muscle-color', `hsl(${hue}, ${saturation}%, ${lightness}%)`));
         });
     }
 
@@ -312,6 +397,7 @@
     }
 
     loadWorkoutProgress();
+    loadExercises();
     loadCalorieData();
     loadBmiHistory();
     updateCalorieDisplay();

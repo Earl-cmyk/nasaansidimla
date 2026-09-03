@@ -155,18 +155,21 @@
 
         if (fileType && fileName) {
             const isTrack = fileType === 'track';
-            if (isTrack && !fileInput.files[0]) {
-                fileSelected.textContent = 'Choose an audio file first';
+            const isImage = fileType === 'image';
+            if ((isTrack || isImage) && !fileInput.files[0]) {
+                fileSelected.textContent = `Choose an ${isTrack ? 'audio' : 'image'} file first`;
                 fileInput.focus();
                 return;
             }
-            const payload = isTrack ? new FormData() : JSON.stringify({ filename: fileName, file_type: fileType, description: fileDesc });
-            if (isTrack) { payload.append('title', fileName); payload.append('description', fileDesc); payload.append('file', fileInput.files[0]); }
-            const response = await fetch(isTrack ? '/api/tracks' : '/api/files', { method: 'POST', headers: isTrack ? {} : { 'Content-Type': 'application/json' }, body: payload });
+            const usesUpload = isTrack || isImage;
+            const payload = usesUpload ? new FormData() : JSON.stringify({ filename: fileName, file_type: fileType, description: fileDesc });
+            if (usesUpload) { payload.append(isTrack ? 'title' : 'filename', fileName); payload.append('file_type', fileType); payload.append('description', fileDesc); payload.append('file', fileInput.files[0]); }
+            const response = await fetch(isTrack ? '/api/tracks' : '/api/files', { method: 'POST', headers: usesUpload ? {} : { 'Content-Type': 'application/json' }, body: payload });
 
             if (response.ok) {
                 if (fileType === 'image') {
-                    addImageToGrid(fileName);
+                    const createdFile = await response.json();
+                    addImageToGrid({ filename: fileName, preview_url: createdFile.preview_url || URL.createObjectURL(fileInput.files[0]) });
                 } else if (fileType === 'video') {
                     addVideoToList(fileName);
                 } else if (fileType === 'track') {
@@ -188,12 +191,20 @@
         if (empty) empty.remove();
     }
 
-    function addImageToGrid(name) {
+    function addImageToGrid(file) {
         removeEmptyState('images-grid');
         const grid = document.getElementById('images-grid');
         const item = document.createElement('div');
         item.className = 'masonry-item';
-        item.textContent = name.substring(0, 15);
+        if (file.preview_url) {
+            const image = document.createElement('img');
+            image.src = file.preview_url;
+            image.alt = file.filename || 'Uploaded image';
+            image.loading = 'lazy';
+            item.appendChild(image);
+        } else {
+            item.textContent = file.filename || 'Image preview unavailable';
+        }
         grid.appendChild(item);
     }
 
@@ -279,7 +290,7 @@
 
         files.forEach(file => {
             if (file.file_type === 'image') {
-                addImageToGrid(file.filename);
+                addImageToGrid(file);
             } else if (file.file_type === 'video') {
                 addVideoToList(file.filename);
             } else {
