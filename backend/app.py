@@ -1035,5 +1035,101 @@ def api_download_file(file_id):
         return jsonify({"status": "error", "message": str(exc)}), 500
 
 
+TRACK_MAX_BYTES = 250 * 1024 * 1024
+TRACK_MIME_TYPES = {
+    "audio/aac", "audio/flac", "audio/m4a", "audio/mp4", "audio/mpeg",
+    "audio/ogg", "audio/wav", "audio/webm", "audio/x-flac", "audio/x-m4a", "audio/x-wav",
+}
+
+TRACK_EXTENSION_MIME_TYPES = {
+    ".aac": "audio/aac", ".flac": "audio/flac", ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg", ".oga": "audio/ogg", ".ogg": "audio/ogg",
+    ".wav": "audio/wav", ".weba": "audio/webm",
+}
+
+
+@app.route("/api/tracks", methods=["GET"])
+def api_get_tracks():
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, title, filename, mime_type, file_size, duration_seconds, description, uploaded_at "
+                    "FROM tracks ORDER BY uploaded_at DESC"
+                )
+                rows = cursor.fetchall()
+        return jsonify([
+            {
+                "id": row[0], "title": row[1], "filename": row[2], "mime_type": row[3],
+                "file_size": row[4], "duration": float(row[5]) if row[5] is not None else None,
+                "description": row[6] or "", "uploaded_at": row[7].isoformat() if hasattr(row[7], "isoformat") else row[7],
+            }
+            for row in rows
+        ])
+    except Exception:
+        return jsonify([])
+
+
+@app.route("/api/tracks", methods=["POST"])
+def api_create_track():
+    upload = request.files.get("file")
+    if not upload or not upload.filename:
+        return jsonify({"status": "error", "message": "Choose an audio file to upload."}), 400
+
+    mime_type = (upload.mimetype or "").lower()
+    if mime_type not in TRACK_MIME_TYPES:
+        mime_type = TRACK_EXTENSION_MIME_TYPES.get(Path(upload.filename).suffix.lower(), "")
+    if mime_type not in TRACK_MIME_TYPES:
+        return jsonify({"status": "error", "message": "Only common audio file types are supported."}), 415
+
+    content = upload.read(TRACK_MAX_BYTES + 1)
+    if len(content) > TRACK_MAX_BYTES:
+        return jsonify({"status": "error", "message": "Tracks must be 250 MB or smaller."}), 413
+
+    title = (request.form.get("title") or Path(upload.filename).stem or "Untitled track").strip()
+    description = (request.form.get("description") or "").strip()
+    duration = request.form.get("duration") or None
+    try:
+        duration = float(duration) if duration is not None else None
+    except ValueError:
+        duration = None
+
+    with get_db() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO tracks (title, filename, mime_type, file_size, duration_seconds, description, content) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                (title, upload.filename, mime_type, len(content), duration, description, content),
+            )
+            track_id = cursor.fetchone()[0]
+    return jsonify({"status": "ok", "id": track_id}), 201
+
+
+@app.route("/api/tracks/<int:track_id>/stream")
+def api_stream_track(track_id):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT filename, mime_type, content FROM tracks WHERE id = %s", (track_id,))
+                row = cursor.fetchone()
+        if not row:
+            return jsonify({"status": "error", "message": "Track not found"}), 404
+        from io import BytesIO
+        return send_file(BytesIO(bytes(row[2])), mimetype=row[1], download_name=row[0], as_attachment=False, conditional=True)
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.route("/api/tracks/<int:track_id>", methods=["DELETE"])
+def api_delete_track(track_id):
+    with get_db() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM tracks WHERE id = %s RETURNING id", (track_id,))
+            deleted = cursor.fetchone()
+    if not deleted:
+        return jsonify({"status": "error", "message": "Track not found"}), 404
+    return jsonify({"status": "ok"})
+
+
 if __name__ == "__main__":
     app.run(debug=True)

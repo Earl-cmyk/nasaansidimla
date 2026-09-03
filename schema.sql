@@ -103,6 +103,19 @@ CREATE TABLE IF NOT EXISTS files (
     uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Tracks table (Works audio library)
+CREATE TABLE IF NOT EXISTS tracks (
+    id BIGSERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    file_size INTEGER NOT NULL CHECK (file_size > 0 AND file_size <= 262144000),
+    duration_seconds NUMERIC(10,2),
+    description TEXT,
+    content BYTEA NOT NULL,
+    uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Meals table (Fitness - calorie tracking)
 CREATE TABLE IF NOT EXISTS meals (
     id BIGSERIAL PRIMARY KEY,

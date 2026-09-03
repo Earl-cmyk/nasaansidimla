@@ -9,13 +9,13 @@
     <body>
         <nav class="topbar">
             <div class="nav-links">
-                <a href="{{ url_for('index') }}" class="nav-icon">📌</a>
-                <a href="{{ url_for('calendar') }}" class="nav-icon">📅</a>
-                <a href="{{ url_for('notes') }}" class="nav-icon">📝</a>
-                <a href="{{ url_for('fitness') }}" class="nav-icon">💪</a>
-                <a href="{{ url_for('workbench') }}" class="nav-icon">✍️</a>
-                <a href="{{ url_for('works') }}" class="nav-icon">🗂️</a>
-                <a href="{{ url_for('wallets') }}" class="nav-icon">💰</a>
+                <a href="{{ url_for('index') }}" class="nav-icon" aria-label="Dashboard">📌</a>
+                <a href="{{ url_for('calendar') }}" class="nav-icon" aria-label="Calendar">📅</a>
+                <a href="{{ url_for('notes') }}" class="nav-icon" aria-label="Notes">📝</a>
+                <a href="{{ url_for('fitness') }}" class="nav-icon" aria-label="Fitness">💪</a>
+                <a href="{{ url_for('workbench') }}" class="nav-icon" aria-label="Workbench">✍️</a>
+                <a href="{{ url_for('works') }}" class="nav-icon" aria-label="Works">🗂️</a>
+                <a href="{{ url_for('wallets') }}" class="nav-icon" aria-label="Wallets">💰</a>
             </div>
 
             <div class="search-wrap">
@@ -23,7 +23,7 @@
                 <button id="search-button" class="primary-button" type="button">🔍</button>
             </div>
 
-            <button id="assistant-toggle" class="nav-icon" title="Open assistant">💬</button>
+            <button id="assistant-toggle" class="nav-icon" title="Open assistant" aria-label="Open assistant" aria-expanded="false" aria-controls="assistant-drawer">💬</button>
         </nav>
 
         <div id="search-results" class="search-results" aria-live="polite"></div>
@@ -32,7 +32,7 @@
             {% block content %}{% endblock %}
         </main>
 
-        <aside id="assistant-drawer" class="assistant-drawer">
+        <aside id="assistant-drawer" class="assistant-drawer" aria-label="Rick assistant" aria-hidden="true">
             <div class="assistant-header">
                 <h3>Rick</h3>
                 <button id="assistant-close" class="ghost-button" type="button">✕</button>
@@ -61,11 +61,15 @@
             // Assistant drawer toggle
             assistantToggle.addEventListener('click', () => {
                 assistantDrawer.classList.toggle('open');
-                assistantToggle.textContent = assistantDrawer.classList.contains('open') ? '💬' : '💬';
+                const isOpen = assistantDrawer.classList.contains('open');
+                assistantToggle.setAttribute('aria-expanded', String(isOpen));
+                assistantDrawer.setAttribute('aria-hidden', String(!isOpen));
             });
 
             assistantClose.addEventListener('click', () => {
                 assistantDrawer.classList.remove('open');
+                assistantToggle.setAttribute('aria-expanded', 'false');
+                assistantDrawer.setAttribute('aria-hidden', 'true');
             });
 
             async function handleSearch() {

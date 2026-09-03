@@ -8,14 +8,17 @@
             <p class="eyebrow">archive</p>
             <h1>Works</h1>
         </div>
-        <button id="upload-btn" class="primary-button" type="button">Upload</button>
-        <button id="converter-btn" class="secondary-button" type="button">YouTube converter</button>
+        <div class="header-actions">
+            <button id="upload-btn" class="primary-button" type="button">Upload</button>
+            <button id="converter-btn" class="secondary-button" type="button">YouTube converter</button>
+        </div>
     </header>
 
     <div class="view-picker" aria-label="Works filter">
-        <button class="chip" data-filter="image" type="button">Images</button>
+        <button class="chip active" data-filter="image" type="button">Images</button>
         <button class="chip" data-filter="video" type="button">Videos</button>
         <button class="chip" data-filter="document" type="button">Documents</button>
+        <button class="chip" data-filter="track" type="button">Tracks</button>
     </div>
 
     <div class="works-layout">
@@ -26,18 +29,23 @@
             </div>
         </div>
 
-        <div id="videos-section" class="card work-view">
+        <div id="videos-section" class="card work-view" hidden>
             <h3>Videos</h3>
             <div id="videos-list" class="video-stack">
                 <p class="empty-state-text">No videos yet.</p>
             </div>
         </div>
 
-        <div id="files-section" class="card work-view">
+        <div id="files-section" class="card work-view" hidden>
             <h3>Files</h3>
             <ul id="files-list" class="file-list">
                 <p class="empty-state-text">No files yet.</p>
             </ul>
+        </div>
+
+        <div id="tracks-section" class="card work-view" hidden>
+            <div class="work-view-header"><div><h3>Tracks</h3><p class="work-view-subtitle">Your audio library</p></div><span class="track-count" id="track-count">0 tracks</span></div>
+            <div id="tracks-list" class="track-list"><p class="empty-state-text">No tracks yet. Upload an audio file to get started.</p></div>
         </div>
     </div>
 </section>
@@ -58,6 +66,7 @@
                         <option value="image">Image</option>
                         <option value="video">Video</option>
                         <option value="document">Document</option>
+                        <option value="track">Audio track</option>
                         <option value="other">Other</option>
                     </select>
                 </label>
@@ -69,8 +78,10 @@
                     <span>Description</span>
                     <textarea id="file-desc" placeholder="What is this file..." rows="4"></textarea>
                 </label>
-                <div class="drop-zone" id="drop-zone">
+                <div class="drop-zone" id="drop-zone" role="button" tabindex="0">
+                    <input id="file-input" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt" hidden aria-label="Choose a file to upload">
                     <p>Drop files here or click to select</p>
+                    <span id="file-selected" class="file-selected">No file selected</span>
                 </div>
                 <button type="submit" class="primary-button">Upload</button>
             </form>
@@ -86,6 +97,9 @@
     const uploadClose = document.getElementById('upload-close');
     const uploadForm = document.getElementById('upload-form');
     const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileSelected = document.getElementById('file-selected');
+    const tracksList = document.getElementById('tracks-list');
     let loadedFiles = [];
 
     const files = {
@@ -116,6 +130,10 @@
         dropZone.style.background = 'rgba(124, 199, 255, 0.1)';
     });
 
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+    fileInput.addEventListener('change', () => { fileSelected.textContent = fileInput.files[0]?.name || 'No file selected'; });
+
     dropZone.addEventListener('dragleave', () => {
         dropZone.style.background = '';
     });
@@ -123,7 +141,8 @@
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.style.background = '';
-        // File handling would go here
+        fileInput.files = e.dataTransfer.files;
+        fileSelected.textContent = fileInput.files[0]?.name || 'No file selected';
     });
 
     // Handle form submission
@@ -135,26 +154,29 @@
         const fileDesc = document.getElementById('file-desc').value.trim();
 
         if (fileType && fileName) {
-            const response = await fetch('/api/files', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    filename: fileName,
-                    file_type: fileType,
-                    description: fileDesc
-                }),
-            });
+            const isTrack = fileType === 'track';
+            if (isTrack && !fileInput.files[0]) {
+                fileSelected.textContent = 'Choose an audio file first';
+                fileInput.focus();
+                return;
+            }
+            const payload = isTrack ? new FormData() : JSON.stringify({ filename: fileName, file_type: fileType, description: fileDesc });
+            if (isTrack) { payload.append('title', fileName); payload.append('description', fileDesc); payload.append('file', fileInput.files[0]); }
+            const response = await fetch(isTrack ? '/api/tracks' : '/api/files', { method: 'POST', headers: isTrack ? {} : { 'Content-Type': 'application/json' }, body: payload });
 
             if (response.ok) {
                 if (fileType === 'image') {
                     addImageToGrid(fileName);
                 } else if (fileType === 'video') {
                     addVideoToList(fileName);
+                } else if (fileType === 'track') {
+                    await loadTracks();
                 } else {
                     addFileToList(fileName);
                 }
 
                 uploadForm.reset();
+                fileSelected.textContent = 'No file selected';
                 uploadModal.classList.remove('open');
             }
         }
@@ -192,6 +214,64 @@
         list.appendChild(item);
     }
 
+    function formatTrackDuration(seconds) {
+        if (!seconds) return '--:--';
+        return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+    }
+
+    function addTrackToList(track) {
+        const empty = tracksList.querySelector('.empty-state-text');
+        if (empty) empty.remove();
+        const row = document.createElement('div');
+        row.className = 'track-row';
+        row.innerHTML = `<span class="track-art">${(track.title || track.filename).charAt(0).toUpperCase()}</span><span class="track-meta"><strong class="track-title"></strong><span class="track-artist">${track.description || 'Uploaded track'}</span></span><span class="track-duration">${formatTrackDuration(track.duration)}</span><button class="track-play" type="button" aria-label="Play track">▶</button>`;
+        row.querySelector('.track-title').textContent = track.title || track.filename;
+        const audio = new Audio(`/api/tracks/${track.id}/stream`);
+        const playButton = row.querySelector('.track-play');
+        playButton.addEventListener('click', () => {
+            document.querySelectorAll('.track-row audio').forEach((item) => {
+                if (item !== audio) item.pause();
+            });
+            document.querySelectorAll('.track-row').forEach((item) => {
+                if (item !== row) {
+                    item.classList.remove('is-playing');
+                    item.querySelector('.track-play').textContent = '▶';
+                }
+            });
+            if (audio.paused) {
+                audio.play().then(() => {
+                    row.classList.add('is-playing');
+                    playButton.textContent = '❚❚';
+                    playButton.setAttribute('aria-label', 'Pause track');
+                }).catch(() => { row.classList.remove('is-playing'); });
+            } else {
+                audio.pause();
+                row.classList.remove('is-playing');
+                playButton.textContent = '▶';
+                playButton.setAttribute('aria-label', 'Play track');
+            }
+        });
+        audio.addEventListener('loadedmetadata', () => {
+            if (!track.duration && Number.isFinite(audio.duration)) row.querySelector('.track-duration').textContent = formatTrackDuration(audio.duration);
+        });
+        audio.addEventListener('ended', () => {
+            row.classList.remove('is-playing');
+            playButton.textContent = '▶';
+            playButton.setAttribute('aria-label', 'Play track');
+        });
+        row.appendChild(audio);
+        tracksList.appendChild(row);
+    }
+
+    async function loadTracks() {
+        const response = await fetch('/api/tracks');
+        const tracks = await response.json();
+        tracksList.innerHTML = '';
+        document.getElementById('track-count').textContent = `${tracks.length} track${tracks.length === 1 ? '' : 's'}`;
+        if (!tracks.length) { tracksList.innerHTML = '<p class="empty-state-text">No tracks yet. Upload an audio file to get started.</p>'; return; }
+        tracks.forEach(addTrackToList);
+    }
+
     async function loadFilesFromBackend() {
         const response = await fetch('/api/files');
         loadedFiles = await response.json();
@@ -210,6 +290,7 @@
 
     // Load existing files on page load
     loadFilesFromBackend();
+    loadTracks();
     const converterModal = document.getElementById('converter-modal');
     document.getElementById('converter-btn').addEventListener('click', () => converterModal.classList.add('open'));
     document.getElementById('converter-close').addEventListener('click', () => converterModal.classList.remove('open'));
@@ -225,7 +306,8 @@
     document.querySelectorAll('[data-filter]').forEach((button) => button.addEventListener('click', () => {
         document.querySelectorAll('[data-filter]').forEach((item) => item.classList.toggle('active', item === button));
         const filter = button.dataset.filter;
-        document.querySelectorAll('.work-view').forEach((section) => { section.style.display = filter === 'all' || section.id.startsWith(`${filter}s`) || (filter === 'document' && section.id === 'files-section') ? '' : 'none'; });
+        document.querySelectorAll('.work-view').forEach((section) => { section.hidden = !(filter === 'image' ? section.id === 'images-section' : filter === 'video' ? section.id === 'videos-section' : filter === 'track' ? section.id === 'tracks-section' : section.id === 'files-section'); });
     }));
+    document.querySelector('[data-filter="image"]').click();
 </script>
 {% endblock %}

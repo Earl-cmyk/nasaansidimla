@@ -23,10 +23,10 @@
             <div class="calendar-grid month-grid" data-view-panel="month">
             </div>
 
-            <div class="calendar-grid month-grid" data-view-panel="week" style="display:none;">
+            <div class="calendar-grid month-grid" data-view-panel="week" hidden>
             </div>
 
-            <div class="calendar-grid month-grid" data-view-panel="day" style="display:none;">
+            <div class="calendar-grid month-grid" data-view-panel="day" hidden>
             </div>
         </div>
 
@@ -185,7 +185,7 @@
         currentView = data.view;
         currentDate = data.date;
         calendarButtons.forEach((button) => button.classList.toggle('active', button.dataset.view === data.view));
-        calendarPanels.forEach((panel) => { panel.style.display = panel.dataset.viewPanel === data.view ? 'grid' : 'none'; });
+        calendarPanels.forEach((panel) => { panel.hidden = panel.dataset.viewPanel !== data.view; });
         const panel = document.querySelector(`[data-view-panel="${data.view}"]`);
         if (!panel) return;
 

@@ -17,10 +17,10 @@
             <button class="secondary-button" data-mode="sheet" type="button">Sheet</button>
             <button class="secondary-button" data-mode="presentation" type="button">Slides</button>
         </aside>
-        <div id="workbench-grid" class="workbench-grid workbench-canvas">
+        <div id="workbench-grid" class="workbench-canvas">
             <div class="canvas-toolbar">
                 <input id="workspace-title" placeholder="Untitled project" aria-label="Project title">
-                <div class="document-tools" data-document-tools>
+                <div class="document-tools mode-tools" data-document-tools>
                     <button type="button" data-command="bold" title="Bold"><strong>B</strong></button>
                     <button type="button" data-command="italic" title="Italic"><em>I</em></button>
                     <button type="button" data-command="underline" title="Underline"><u>U</u></button>
@@ -29,8 +29,8 @@
                     <button type="button" data-command="formatBlock" data-value="h2" title="Heading">H</button>
                     <button type="button" data-command="createLink" title="Link">Link</button>
                 </div>
-                <div class="sheet-tools" data-sheet-tools hidden><button type="button" id="add-sheet-row">+ Row</button><button type="button" id="add-sheet-column">+ Column</button></div>
-                <div class="slide-tools" data-slide-tools hidden><button type="button" id="add-slide">+ Slide</button></div>
+                <div class="sheet-tools mode-tools" data-sheet-tools hidden><button type="button" id="add-sheet-row">+ Row</button><button type="button" id="add-sheet-column">+ Column</button></div>
+                <div class="slide-tools mode-tools" data-slide-tools hidden><button type="button" id="add-slide">+ Slide</button></div>
                 <button id="save-workspace" class="primary-button" type="button">Save to Works</button>
             </div>
             <textarea id="workspace-content" class="workspace-editor" placeholder="Start writing, planning, or building a table..." hidden></textarea>
@@ -107,11 +107,6 @@
     const projectCards = document.querySelectorAll('.project-card');
     const modalCloseButtons = document.querySelectorAll('.modal-close');
     const newProjectBtn = document.getElementById('new-project-btn');
-    document.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => {
-        document.querySelectorAll('[data-mode]').forEach((tool) => tool.classList.toggle('active-tool', tool === button));
-        document.querySelector('.workbench-canvas').dataset.mode = button.dataset.mode;
-    }));
-
     const projects = {
         essays: [],
         books: [],
@@ -126,11 +121,13 @@
     document.getElementById('save-workspace').addEventListener('click', async () => {
         const mode = document.querySelector('.workbench-canvas').dataset.mode || 'document';
         const content = mode === 'document' ? workspaceRich.innerHTML : mode === 'sheet' ? workspaceSheet.innerHTML : workspaceSlides.innerHTML;
-        const response = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: mode, title: workspaceTitle.value || 'Untitled project', description: workspaceContent.value, metadata: {}, content, mode }) });
+        const description = mode === 'document' ? workspaceRich.textContent : workspaceContent.value;
+        const response = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: mode, title: workspaceTitle.value || 'Untitled project', description, metadata: {}, content, mode }) });
         if (response.ok) { workspaceTitle.value = ''; workspaceContent.value = ''; alert('Saved to Works.'); }
     });
-    document.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => {
-        const mode = button.dataset.mode;
+    function setWorkbenchMode(mode) {
+        document.querySelectorAll('[data-mode]').forEach((tool) => tool.classList.toggle('active-tool', tool.dataset.mode === mode));
+        document.querySelector('.workbench-canvas').dataset.mode = mode;
         workspaceContent.hidden = mode !== 'document';
         workspaceRich.hidden = mode !== 'document';
         workspaceSheet.hidden = mode !== 'sheet';
@@ -138,7 +135,9 @@
         document.querySelector('[data-document-tools]').hidden = mode !== 'document';
         document.querySelector('[data-sheet-tools]').hidden = mode !== 'sheet';
         document.querySelector('[data-slide-tools]').hidden = mode !== 'presentation';
-    }));
+    }
+
+    document.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => setWorkbenchMode(button.dataset.mode)));
 
     document.querySelectorAll('[data-command]').forEach((button) => button.addEventListener('click', () => {
         workspaceRich.focus();
@@ -149,7 +148,7 @@
     document.getElementById('add-sheet-row').addEventListener('click', () => { const row = workspaceSheet.querySelector('tbody tr').cloneNode(true); row.querySelectorAll('td').forEach((cell) => { cell.textContent = ''; }); workspaceSheet.querySelector('tbody').appendChild(row); });
     document.getElementById('add-sheet-column').addEventListener('click', () => { workspaceSheet.querySelectorAll('tr').forEach((row) => { const cell = document.createElement(row.parentElement.tagName === 'THEAD' ? 'th' : 'td'); cell.contentEditable = 'true'; row.appendChild(cell); }); });
     document.getElementById('add-slide').addEventListener('click', () => { const slide = document.createElement('article'); slide.className = 'workspace-slide'; slide.contentEditable = 'true'; slide.innerHTML = '<h2>New slide</h2><p>Add your content.</p>'; workspaceSlides.appendChild(slide); });
-    document.querySelector('[data-mode="document"]').click();
+    setWorkbenchMode('document');
 
     // Open project type modal
     projectCards.forEach(card => {

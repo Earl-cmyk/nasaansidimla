@@ -1666,3 +1666,573 @@ h1, h2, h3, h4 {
     .agenda-hour { grid-template-columns: 52px minmax(0, 1fr); gap: 8px; }
     .agenda-event { flex-direction: column; gap: 2px; }
 }
+
+/* Shared layout refinements */
+:root {
+    --space-1: 8px;
+    --space-2: 12px;
+    --space-3: 16px;
+    --space-4: 24px;
+    --space-5: 32px;
+    --surface-page: rgba(18, 24, 29, 0.84);
+    --surface-card: rgba(29, 38, 45, 0.88);
+    --surface-raised: rgba(38, 48, 56, 0.92);
+    --line-soft: rgba(255, 255, 255, 0.07);
+    --radius-card: 16px;
+    --radius-control: 10px;
+    --control-height: 42px;
+}
+
+body {
+    background: radial-gradient(circle at 20% 0%, rgba(124, 199, 255, 0.08), transparent 32%), linear-gradient(180deg, #0d1116 0%, #101821 100%);
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    line-height: 1.5;
+}
+
+.topbar {
+    padding: var(--space-2) max(16px, calc((100vw - 1248px) / 2));
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.page-shell {
+    max-width: 1248px;
+    margin-top: var(--space-4);
+    padding: 0 24px 48px;
+}
+
+.page-panel,
+.dashboard-shell,
+.fitness-shell,
+.wallet-shell {
+    padding: var(--space-4);
+}
+
+.page-panel,
+.fitness-shell,
+.wallet-shell {
+    background: var(--surface-page);
+    border: 1px solid var(--line-soft);
+    border-radius: 20px;
+    box-shadow: 0 18px 40px var(--shadow);
+}
+
+.dashboard-shell {
+    padding: var(--space-2) 0 0;
+}
+
+.section-header {
+    margin-bottom: var(--space-4);
+    align-items: flex-start;
+}
+
+.section-header > div:last-child,
+.fitness-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.bento-grid,
+.calendar-layout,
+.fitness-grid,
+.wallet-grid,
+.wallet-summary-grid,
+.works-layout,
+.workbench-stage {
+    gap: var(--space-3);
+}
+
+.card,
+.calendar-card,
+.mini-card,
+.wallet-card,
+.work-view {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius-card);
+    padding: var(--space-3);
+}
+
+.wallet-shell {
+    gap: var(--space-4);
+}
+
+.wallet-panel.card,
+.quote-card,
+.project-item,
+.video-item,
+.account-item,
+.goal-item,
+.mini-grid > div,
+.spending-list li,
+.market-card {
+    border: 0;
+    border-radius: 12px;
+}
+
+.wallet-panel.card {
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.quote-card,
+.project-item,
+.video-item,
+.account-item,
+.goal-item,
+.mini-grid > div,
+.spending-list li,
+.market-card {
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.bento-grid,
+.wallet-summary-grid {
+    gap: var(--space-3);
+}
+
+input, textarea, select {
+    min-height: var(--control-height);
+    border-color: var(--line-soft);
+    border-radius: var(--radius-control);
+    background: rgba(7, 12, 16, 0.58);
+}
+
+label,
+.note-composer form,
+.calorie-form,
+.project-form,
+#upload-form,
+.wallet-form,
+.inline-form {
+    gap: var(--space-2);
+}
+
+.primary-button,
+.secondary-button,
+.ghost-button,
+.chip {
+    border-radius: var(--radius-control);
+}
+
+.primary-button,
+.secondary-button,
+.ghost-button,
+.chip {
+    min-height: var(--control-height);
+}
+
+.modal-content {
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius-card);
+}
+
+.modal-header,
+.modal-body {
+    padding: var(--space-3) var(--space-4);
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.workbench-canvas {
+    display: block;
+    width: 100%;
+    padding: var(--space-3);
+    border: 0;
+    border-radius: var(--radius-card);
+}
+
+.canvas-toolbar {
+    margin-bottom: var(--space-3);
+}
+
+.document-tools button,
+.sheet-tools button,
+.slide-tools button {
+    border: 0;
+    border-radius: 7px;
+}
+
+.workspace-rich {
+    padding: var(--space-2);
+}
+
+.workspace-slide {
+    border: 0;
+    border-radius: 12px;
+}
+
+.works-layout > .card h3 {
+    margin-bottom: var(--space-3);
+}
+
+.fitness-shell {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.fitness-header {
+    margin-bottom: 0;
+}
+
+.bmi-panel {
+    margin: 0;
+}
+
+.assistant-drawer {
+    border-left: 1px solid var(--line-soft);
+}
+
+.assistant-note,
+.assistant-message {
+    border: 0;
+}
+
+.note-editor-preview,
+.editor-toolbar,
+.masonry-item {
+    border: 0;
+}
+
+.masonry-item {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.view-picker,
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.view-picker {
+    margin-bottom: var(--space-3);
+}
+
+.works-layout,
+.wallet-grid,
+.fitness-grid,
+.calendar-layout {
+    align-items: start;
+}
+
+@media (max-width: 980px) {
+    .page-shell {
+        padding-inline: 16px;
+    }
+
+    .page-panel,
+    .fitness-shell,
+    .wallet-shell {
+        padding: var(--space-3);
+    }
+
+    .wallet-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 620px) {
+    .topbar {
+        padding-inline: 12px;
+    }
+
+    .page-shell {
+        margin-top: var(--space-3);
+        padding-inline: 10px;
+    }
+
+    .page-panel,
+    .fitness-shell,
+    .wallet-shell {
+        padding: var(--space-2);
+        border-radius: 16px;
+    }
+
+    .section-header {
+        margin-bottom: var(--space-3);
+    }
+
+    .wallet-summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}
+
+[hidden] {
+    display: none !important;
+}
+
+/* Fitness anatomy map */
+.body-visual {
+    min-height: 520px;
+    display: grid;
+    place-items: center;
+    overflow: visible;
+}
+
+.body-map {
+    position: relative;
+    width: min(100%, 560px);
+    height: 470px;
+}
+
+.body-silhouette {
+    inset: 30px 36% 26px;
+    opacity: 0.22;
+}
+
+.body-silhouette .neck {
+    display: block;
+    width: 34px;
+    height: 28px;
+    margin: -2px auto 0;
+    background: #bac5cd;
+}
+
+.body-silhouette .torso {
+    height: 190px;
+    margin-top: 0;
+}
+
+.body-silhouette .arm {
+    position: absolute;
+    top: 68px;
+    width: 38px;
+    height: 178px;
+    border-radius: 24px;
+    background: #bac5cd;
+}
+
+.body-silhouette .arm.left { left: -22%; transform: rotate(8deg); }
+.body-silhouette .arm.right { right: -22%; transform: rotate(-8deg); }
+.body-silhouette .leg { top: 230px; height: 184px; }
+
+.muscle {
+    min-width: 108px;
+    min-height: 52px;
+    gap: 7px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(7, 12, 16, 0.72);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+}
+
+.muscle-shape {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.85;
+}
+
+.muscle-shoulders .muscle-shape { width: 28px; border-radius: 50% 50% 35% 35%; }
+.muscle-chest .muscle-shape { width: 28px; height: 14px; border-radius: 50% 50% 45% 45%; }
+.muscle-arms .muscle-shape { width: 12px; height: 26px; border-radius: 50%; }
+.muscle-core .muscle-shape { width: 18px; height: 27px; border-radius: 42%; }
+.muscle-legs .muscle-shape { width: 24px; height: 28px; border-radius: 45% 45% 30% 30%; }
+.muscle-back .muscle-shape { width: 22px; height: 26px; border-radius: 42% 42% 35% 35%; }
+
+.muscle-shoulders { top: 50px; left: 50%; transform: translateX(-50%); }
+.muscle-chest { top: 132px; left: 50%; transform: translateX(-50%); }
+.muscle-arms { top: 140px; left: 5%; }
+.muscle-core { top: 220px; left: 50%; transform: translateX(-50%); }
+.muscle-legs { bottom: 12px; left: 50%; transform: translateX(-50%); }
+.muscle-back { top: 280px; right: 5%; }
+
+.muscle:hover,
+.muscle:focus-visible {
+    transform: translateY(-3px);
+    border-color: var(--primary);
+}
+
+.muscle-shoulders:hover, .muscle-shoulders:focus-visible,
+.muscle-chest:hover, .muscle-chest:focus-visible,
+.muscle-core:hover, .muscle-core:focus-visible,
+.muscle-legs:hover, .muscle-legs:focus-visible {
+    transform: translateX(-50%) translateY(-3px);
+}
+
+/* Wide note reading and editing surfaces */
+.note-modal .modal-content {
+    width: min(900px, calc(100vw - 32px));
+    max-width: none;
+    max-height: min(88vh, 900px);
+}
+
+.note-modal .modal-body {
+    overflow-y: auto;
+}
+
+#note-detail-modal .note-detail-content {
+    max-height: 62vh;
+    overflow-y: auto;
+}
+
+#note-modal #note-content {
+    min-height: 360px;
+}
+
+#note-modal .editor-toolbar {
+    border-radius: 10px 10px 0 0;
+    background: rgba(8, 12, 16, 0.72);
+}
+
+#note-modal .note-editor-preview {
+    min-height: 100px;
+    padding: var(--space-3);
+    border-radius: 0 0 10px 10px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+/* Docs, Sheets, and Slides workbench surfaces */
+.workbench-canvas {
+    min-height: 680px;
+    max-height: none;
+    aspect-ratio: auto;
+    background: #e9edf0;
+    color: #202124;
+}
+
+.workbench-canvas[data-mode="sheet"] {
+    background: #f8fbf8;
+    color: #202124;
+}
+
+.workbench-canvas[data-mode="presentation"] {
+    min-height: 680px;
+    padding: var(--space-4);
+    background: #202124;
+    color: #f8f9fa;
+}
+
+.canvas-toolbar {
+    padding: 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 1px 4px rgba(32, 33, 36, 0.12);
+}
+
+.canvas-toolbar > input {
+    min-width: 180px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.mode-tools button {
+    border: 0;
+    background: transparent;
+}
+
+.workspace-rich {
+    width: min(100%, 820px);
+    min-height: 600px;
+    margin: var(--space-4) auto;
+    padding: 64px 72px;
+    background: #ffffff;
+    color: #202124;
+    box-shadow: 0 8px 24px rgba(32, 33, 36, 0.18);
+}
+
+.workspace-sheet {
+    min-height: 600px;
+    overflow: auto;
+    background: #ffffff;
+    color: #202124;
+}
+
+.workspace-sheet table {
+    min-width: 640px;
+}
+
+.workspace-sheet th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #e6f4ea;
+    color: #202124;
+}
+
+.workspace-sheet td,
+.workspace-sheet th {
+    border-color: #d7e3d9;
+}
+
+.workspace-sheet td:focus,
+.workspace-sheet th:focus {
+    outline: 2px solid #1a73e8;
+    outline-offset: -2px;
+}
+
+.workspace-slides {
+    min-height: 560px;
+    max-height: none;
+    padding: var(--space-3);
+    background: #202124;
+}
+
+.workspace-slide {
+    width: min(100%, 900px);
+    margin: 0 auto;
+    padding: 8%;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+}
+
+/* Spotify-inspired tracks */
+.work-view-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.work-view-header h3 { margin: 0; }
+.work-view-subtitle, .track-count { margin: 4px 0 0; color: var(--muted); font-size: 0.82rem; }
+.track-list { display: grid; gap: 4px; margin-top: var(--space-3); }
+
+.track-row {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto 38px;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 64px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    transition: background 0.15s ease;
+}
+
+.track-row:hover, .track-row.is-playing { background: rgba(124, 224, 181, 0.1); }
+.track-art { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 6px; background: linear-gradient(135deg, #7ce0b5, #7cc7ff); color: #071018; font-weight: 800; }
+.track-meta { min-width: 0; }
+.track-title, .track-artist { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-artist { margin-top: 3px; color: var(--muted); font-size: 0.8rem; }
+.track-duration { color: var(--muted); font-size: 0.8rem; }
+.track-play { width: 34px; min-height: 34px; padding: 0; border: 0; border-radius: 50%; background: var(--success); color: #071018; cursor: pointer; }
+.track-row audio { display: none; }
+.track-progress { grid-column: 2 / 4; width: 100%; height: 3px; accent-color: var(--success); }
+
+@media (max-width: 700px) {
+    .body-visual { min-height: 470px; }
+    .body-map { transform: scale(0.82); transform-origin: center; margin: -42px 0; }
+    .muscle-arms { left: 0; }
+    .muscle-back { right: 0; }
+    .note-modal .modal-content { width: 100%; }
+    .workspace-rich { padding: 40px 24px; }
+    .workbench-canvas, .workbench-canvas[data-mode="presentation"] { min-height: 560px; }
+    .track-row { grid-template-columns: 40px minmax(0, 1fr) 34px; }
+    .track-art { width: 40px; height: 40px; }
+    .track-duration { display: none; }
+    .track-progress { grid-column: 2 / 4; }
+}
